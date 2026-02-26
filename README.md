@@ -1,36 +1,73 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# FORGE / research → reality ⬡
+
+FORGE is an AI-powered platform that distills complex academic papers (via arXiv) into actionable SaaS opportunities for builders, researchers, and investors. The platform evaluates ideas based on market fit, build complexity, and innovation, giving each a composite NOVA score.
+
+Users can browse a feed of AI-analyzed ideas, claim them to start building, and share their progress from "Open" to "Building" to "Launched".
+
+## Features
+
+- **AI-Powered Analysis**: The FORGE Python Agent uses Anthropic's Claude (via the Agno framework) to analyze academic papers, extracting target customers, TAM, MVP timelines, and competitive moats.
+- **Idea Feed**: Browse and filter ideas by status (Open, Building, Launched).
+- **Claim & Build**: Claim a promising SaaS opportunity, post regular build updates, and track progress.
+- **Social Interaction**: Comment on ideas and follow builders' journeys.
+
+## Tech Stack
+
+- **Frontend**: [Next.js](https://nextjs.org) (App Router), React 19, Tailwind CSS v4
+- **Backend & Database**: [Supabase](https://supabase.com/) (PostgreSQL, automatic API)
+- **AI Agents**: Python, [Agno Framework](https://github.com/agno-agi/agno), FastAPI
+- **LLM**: Anthropic Claude 3.5 Sonnet
 
 ## Getting Started
 
-First, run the development server:
+### Prerequisites
+
+- Node.js & `npm` / `yarn` / `bun`
+- Python 3.10+
+- Supabase account (or local Supabase setup)
+- Anthropic API Key (for the Agno agent)
+
+### 1. Environment variables
+
+Copy `.env.example` to `.env.local` and fill in your keys:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+cp .env.example .env.local
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### 2. Setup the Next.js Web App
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Install the frontend dependencies and run the development server:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+npm install
+# or bun install
 
-## Learn More
+npm run dev
+# or bun dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+The web app will be available at [http://localhost:3000](http://localhost:3000).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+### 3. Setup the Python Agent Service
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The AI agent runs as a separate FastAPI service. Navigate to the `agents` directory, install dependencies, and start the server:
 
-## Deploy on Vercel
+```bash
+cd agents
+pip install -r requirements.txt
+uvicorn server:app --port 8321 --reload
+```
+*(Alternatively, you can run `npm run agents` from the root directory).*
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 4. Database Schema Update
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Ensure your Supabase database is up to date with the types. You can generate types using the CLI:
+
+```bash
+npm run db:types
+```
+
+## Contributing
+
+Contributions are welcome! Please check out the issues or submit a pull request if you have ideas on how to improve the NOVA scoring algorithm or add new data sources beyond arXiv.
