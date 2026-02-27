@@ -100,39 +100,48 @@ def fetch_arxiv_meta(arxiv_id: str) -> dict:
 
 SYSTEM_PROMPT = """You are FORGE — a technical co-founder evaluating research papers for startup potential.
 
-Task: Identify the ONE most promising startup idea from this paper.
-
-Focus on:
-- Specific technical capability that can be productized
-- Realistic user with real pain point
-- Feasible with $50k and 3 months
-- Low competition, high differentiation
+Analyze the paper first, then identify the ONE most promising startup idea.
 
 OUTPUT JSON ONLY:
 
 {
-  "startupName": "Name",
-  "oneLiner": "Y Combinator style one-liner",
-  "theHook": "Why NOW?",
-  "targetUser": {
-    "persona": "Specific role",
-    "painPoint": "Exact problem",
-    "currentAlternatives": "What they use now"
+  "paperAnalysis": {
+    "summary": "2-3 sentence overview of the paper's contribution",
+    "coreBreakthrough": "The key technical innovation",
+    "keyInnovations": ["Innovation 1", "Innovation 2", "Innovation 3"],
+    "applications": ["Application area 1", "Application area 2"],
+    "limitations": ["Limitation 1", "Limitation 2"]
   },
-  "coreTech": "Paper capability used",
-  "product": {
-    "coreFeature": "MVP feature",
-    "differentiation": "Why better"
+  "swot": {
+    "strengths": ["Strength 1", "Strength 2"],
+    "weaknesses": ["Weakness 1", "Weakness 2"],
+    "opportunities": ["Opportunity 1", "Opportunity 2"],
+    "threats": ["Threat 1", "Threat 2"]
   },
-  "business": {
-    "pricingModel": "Specific pricing",
-    "gtm": "How to get customers"
-  },
-  "metrics": {
-    "novelty": "High/Medium/Low",
-    "competition": "Low/Medium/High",
-    "confidence": 1-10,
-    "mvpMonths": 1-6
+  "startupIdea": {
+    "startupName": "Name",
+    "oneLiner": "Y Combinator style one-liner",
+    "theHook": "Why NOW?",
+    "targetUser": {
+      "persona": "Specific role",
+      "painPoint": "Exact problem",
+      "currentAlternatives": "What they use now"
+    },
+    "coreTech": "Paper capability used",
+    "product": {
+      "coreFeature": "MVP feature",
+      "differentiation": "Why better"
+    },
+    "business": {
+      "pricingModel": "Specific pricing",
+      "gtm": "How to get customers"
+    },
+    "metrics": {
+      "novelty": "High/Medium/Low",
+      "competition": "Low/Medium/High",
+      "confidence": 1-10,
+      "mvpMonths": 1-6
+    }
   }
 }"""
 
@@ -155,7 +164,7 @@ OUTPUT JSON ONLY - array of 3:
 
 
 def build_prompt(meta: dict) -> str:
-    return f"""Analyze this paper and find the ONE best startup idea.
+    return f"""Analyze this paper and generate both a paper analysis and startup idea.
 
 Title: {meta.get("title", "")}
 Authors: {", ".join(meta.get("authors", []))}
@@ -164,9 +173,60 @@ Abstract: {meta.get("abstract", "")[:5000]}
 Return ONLY valid JSON."""
 
 
-def render_main_idea(idea: dict):
+def render_main_idea(data: dict):
+    paper = data.get("paperAnalysis", {})
+    swot = data.get("swot", {})
+    idea = data.get("startupIdea", {})
     m = idea.get("metrics", {})
     target = idea.get("targetUser", {})
+
+    # Summary
+    st.subheader("📝 Summary")
+    st.info(paper.get("summary", ""))
+
+    # Core Ideas
+    st.subheader("💡 Core Ideas")
+    col1, col2 = st.columns(2)
+    with col1:
+        st.markdown("**Key Innovations**")
+        for inn in paper.get("keyInnovations", []):
+            st.markdown(f"- {inn}")
+    with col2:
+        st.markdown("**Applications**")
+        for app in paper.get("applications", []):
+            st.markdown(f"- {app}")
+
+    colA, colB = st.columns(2)
+    with colA:
+        st.markdown("**Core Breakthrough**")
+        st.write(paper.get("coreBreakthrough", ""))
+    with colB:
+        st.markdown("**Limitations**")
+        for lim in paper.get("limitations", []):
+            st.markdown(f"- {lim}")
+
+    # SWOT
+    st.subheader("⚖️ SWOT Analysis")
+    sc1, sc2 = st.columns(2)
+    with sc1:
+        st.markdown("**Strengths**")
+        for s in swot.get("strengths", []):
+            st.write(f"✓ {s}")
+        st.markdown("**Opportunities**")
+        for o in swot.get("opportunities", []):
+            st.write(f"＋ {o}")
+    with sc2:
+        st.markdown("**Weaknesses**")
+        for w in swot.get("weaknesses", []):
+            st.write(f"✗ {w}")
+        st.markdown("**Threats**")
+        for t in swot.get("threats", []):
+            st.write(f"⚠ {t}")
+
+    st.divider()
+
+    # Startup Idea
+    st.subheader("🚀 Startup Idea")
 
     st.markdown(
         f"<div class='saas-header'>{idea.get('startupName', 'TBD')}</div>",
@@ -184,8 +244,6 @@ def render_main_idea(idea: dict):
         st.metric("Confidence", f"{m.get('confidence', '?')}/10")
     with col4:
         st.metric("MVP", f"{m.get('mvpMonths', '?')} months")
-
-    st.divider()
 
     tab1, tab2, tab3, tab4 = st.tabs(
         ["🎯 User", "💻 Product", "💰 Business", "🔧 Tech"]
@@ -315,12 +373,12 @@ if (
         st.session_state.current_arxiv_id = None
         st.rerun()
 
-    idea = saved_data.get("data", {}).get("idea", {})
-    if idea:
-        render_main_idea(idea)
+    data = saved_data.get("data", {})
+    if data:
+        render_main_idea(data)
 
         if not saved_data.get("is_suggestion"):
-            suggestions = saved_data.get("data", {}).get("suggestions", [])
+            suggestions = data.get("suggestions", [])
             if suggestions:
                 render_suggestions(suggestions, st.session_state.current_arxiv_id)
 
@@ -373,12 +431,13 @@ elif analyze_btn and arxiv_input:
                 else:
                     try:
                         data = json.loads(match.group(0))
-                        idea = data
 
                         st.session_state.sessions[arxiv_id] = {
                             "timestamp": datetime.now().isoformat(),
-                            "productName": idea.get("startupName", "TBD"),
-                            "data": {"idea": idea},
+                            "productName": data.get("startupIdea", {}).get(
+                                "startupName", "TBD"
+                            ),
+                            "data": data,
                             "meta": meta,
                         }
 
@@ -396,7 +455,7 @@ elif analyze_btn and arxiv_input:
 
                             suggestion_raw = ""
                             for chunk in suggestion_agent.run(
-                                f"Main idea: {idea.get('oneLiner', '')}\n\nPaper: {meta.get('abstract', '')[:2000]}",
+                                f"Main idea: {data.get('startupIdea', {}).get('oneLiner', '')}\n\nPaper: {meta.get('abstract', '')[:2000]}",
                                 stream=True,
                             ):
                                 content = (
@@ -427,10 +486,11 @@ elif analyze_btn and arxiv_input:
                         prog.progress(100)
                         status.update(label="Done", state="complete", expanded=False)
                         st.toast(
-                            f"Generated: {idea.get('startupName', 'TBD')}", icon="💡"
+                            f"Generated: {data.get('startupIdea', {}).get('startupName', 'TBD')}",
+                            icon="💡",
                         )
 
-                        render_main_idea(idea)
+                        render_main_idea(data)
 
                         if data.get("suggestions"):
                             render_suggestions(data["suggestions"], arxiv_id)
