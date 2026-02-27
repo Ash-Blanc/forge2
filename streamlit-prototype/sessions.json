@@ -621,5 +621,115 @@
       "published": "2026-02-22T01:39:16Z",
       "abstract": "The evolution of Large Language Models (LLMs) from passive text processors to autonomous agents has established planning as a core component of modern intelligence. However, achieving generalized planning remains elusive, not only by the scarcity of high-quality interaction data but also by inherent conflicts across heterogeneous planning tasks. These challenges result in models that excel at isolated tasks yet struggle to generalize, while existing multi-task training attempts suffer from gradient interference. In this paper, we present \\textbf{MagicAgent}, a series of foundation models specifically designed for generalized agent planning. We introduce a lightweight and scalable synthetic data framework that generates high-quality trajectories across diverse planning tasks, including hierarchical task decomposition, tool-augmented planning, multi-constraint scheduling, procedural logic orchestration, and long-horizon tool execution. To mitigate training conflicts, we propose a two-stage training paradigm comprising supervised fine-tuning followed by multi-objective reinforcement learning over both static datasets and dynamic environments. Empirical results demonstrate that MagicAgent-32B and MagicAgent-30B-A3B deliver superior performance, achieving accuracies of $75.1\\%$ on Worfbench, $55.9\\%$ on NaturalPlan, $57.5\\%$ on $\u03c4^2$-Bench, $86.9\\%$ on BFCL-v3, and $81.2\\%$ on ACEBench, as well as strong results on our in-house MagicEval benchmarks. These results substantially outperform existing sub-100B models and even surpass leading closed-source models."
     }
+  },
+  "2504.07079": {
+    "timestamp": "2026-02-27T14:14:18.558602",
+    "productName": "SkillWeaver AI",
+    "data": {
+      "paperAnalysis": {
+        "summary": "SkillWeaver proposes a skill\u2011centric framework that lets autonomous web agents discover, practice, and distill reusable web\u2011interaction APIs, enabling self\u2011improvement and skill transfer across agents. Experiments show up to ~40% lift in success rates on benchmark and real\u2011world sites.",
+        "startupViabilityScore": 85,
+        "viabilityReasoning": "The work goes beyond a research prototype: it delivers a concrete pipeline to auto\u2011generate plug\u2011and\u2011play web\u2011automation APIs, directly addressing a massive market for RPA and no\u2011code integrations. While still requiring compute and may struggle on highly dynamic sites, the core capability is deployable as a SaaS service, making it highly applicable.",
+        "coreBreakthrough": "Autonomous synthesis of reusable, lightweight API abstractions (skills) from raw web\u2011interaction experience, with iterative self\u2011improvement and cross\u2011agent transfer.",
+        "keyInnovations": [
+          "Exploratory skill discovery on unseen websites",
+          "Practice\u2011to\u2011API distillation that turns UI traces into reusable functions",
+          "Iterative self\u2011improvement loop that expands a shared skill library",
+          "Transfer learning: stronger agents boost weaker ones via shared skills"
+        ],
+        "applications": [
+          "Automated SaaS integration and workflow automation",
+          "Low\u2011code web\u2011bot creation for customer support, data entry, and monitoring",
+          "Enterprise RPA platforms that need rapid onboarding of new web apps"
+        ],
+        "limitations": [
+          "Performance degrades on heavily dynamic or heavily JS\u2011driven sites without proper rendering",
+          "Initial exploration can be compute\u2011intensive and may require multiple trial runs",
+          "Generated APIs depend on UI stability; site redesigns can break skills"
+        ]
+      },
+      "swot": {
+        "strengths": [
+          "Self\u2011improving, reduces manual scripting effort",
+          "Skills are lightweight, composable, and transferable across agents",
+          "Leverages LLM reasoning to abstract procedural knowledge"
+        ],
+        "weaknesses": [
+          "Requires significant compute for discovery and practice phases",
+          "Limited robustness to frequent UI changes",
+          "Current evaluation limited to benchmark sites; real\u2011world variance unknown"
+        ],
+        "opportunities": [
+          "Booming no\u2011code/low\u2011code integration market",
+          "Enterprise demand for fast SaaS onboarding without developer bottlenecks",
+          "Potential to build a marketplace of community\u2011contributed skills"
+        ],
+        "threats": [
+          "Established RPA vendors (UiPath, Automation Anywhere) adding AI features",
+          "Legal and compliance risks around automated web interaction/scraping",
+          "Rapid advances in LLM\u2011driven agents could outpace the current approach"
+        ]
+      },
+      "startupIdea": {
+        "startupName": "SkillWeaver AI",
+        "oneLiner": "One\u2011click generation of reusable web\u2011automation APIs for any SaaS app \u2013 no code, no devs, just skills that learn themselves.",
+        "theHook": "Enterprises are racing to stitch together dozens of SaaS tools; existing RPA solutions need hours of manual scripting, while LLMs now have enough reasoning power to auto\u2011discover and package those interactions as plug\u2011and\u2011play APIs.",
+        "targetUser": {
+          "persona": "Product Operations Manager at a mid\u2011size SaaS company",
+          "painPoint": "Spending weeks engineering brittle web\u2011scrapers or Zapier custom code for each new internal tool integration.",
+          "currentAlternatives": "Manual Selenium/Puppeteer scripts, low\u2011code platforms (Zapier, Make) with custom code steps, enterprise RPA licenses."
+        },
+        "coreTech": "SkillWeaver self\u2011improving skill discovery and API distillation pipeline.",
+        "product": {
+          "coreFeature": "Web\u2011Task API Generator \u2013 upload a task description, the system explores the target site, practices the workflow, and outputs a callable REST endpoint that executes the task reliably.",
+          "differentiation": "Skills are automatically honed and reusable across customers; no manual scripting, instant transfer of improvements from \u201cstrong\u201d agents to all users."
+        },
+        "business": {
+          "pricingModel": "Tiered SaaS subscription: Free tier with 5 generated APIs and 10,000 monthly calls; Pro tier $199/mo for 50 APIs + 500k calls; Enterprise custom pricing with on\u2011premise deployment and dedicated skill\u2011training compute.",
+          "gtm": "Direct sales to product ops & integration teams; developer evangelism via a free sandbox; partnership with low\u2011code marketplaces to list generated skills; content marketing around case studies of rapid SaaS onboarding."
+        },
+        "metrics": {
+          "novelty": "High",
+          "competition": "Medium",
+          "confidence": 8,
+          "mvpMonths": 4
+        }
+      },
+      "suggestions": [
+        {
+          "startupName": "SkillForge",
+          "oneLiner": "A marketplace where AI\u2011generated, plug\u2011and\u2011play web\u2011automation APIs for any SaaS are bought, sold, and subscribed to, letting businesses instantly automate workflows without developers.",
+          "angle": "vertical marketplace for SaaS automation APIs"
+        },
+        {
+          "startupName": "WeavePlug",
+          "oneLiner": "A no\u2011code/low\u2011code integration plugin that lets product teams point to any web app and instantly receive a ready\u2011made API wrapper, accelerating internal tool building and citizen development.",
+          "angle": "platform plugin for low\u2011code builders and internal tool teams"
+        },
+        {
+          "startupName": "SkillSync",
+          "oneLiner": "A collaborative cloud library where autonomous web agents continuously contribute, refine, and share synthesized skill\u2011APIs, enabling crowd\u2011sourced skill improvement and rapid agent bootstrapping.",
+          "angle": "community\u2011driven skill\u2011sharing ecosystem for AI agents"
+        }
+      ]
+    },
+    "meta": {
+      "title": "SkillWeaver: Web Agents can Self-Improve by Discovering and Honing Skills",
+      "authors": [
+        "Boyuan Zheng",
+        "Michael Y. Fatemi",
+        "Xiaolong Jin",
+        "Zora Zhiruo Wang",
+        "Apurva Gandhi",
+        "Yueqi Song",
+        "Yu Gu",
+        "Jayanth Srinivasa",
+        "Gaowen Liu",
+        "Graham Neubig",
+        "Yu Su"
+      ],
+      "published": "2025-04-09T17:51:50Z",
+      "abstract": "To survive and thrive in complex environments, humans have evolved sophisticated self-improvement mechanisms through environment exploration, hierarchical abstraction of experiences into reuseable skills, and collaborative construction of an ever-growing skill repertoire. Despite recent advancements, autonomous web agents still lack crucial self-improvement capabilities, struggling with procedural knowledge abstraction, refining skills, and skill composition. In this work, we introduce SkillWeaver, a skill-centric framework enabling agents to self-improve by autonomously synthesizing reusable skills as APIs. Given a new website, the agent autonomously discovers skills, executes them for practice, and distills practice experiences into robust APIs. Iterative exploration continually expands a library of lightweight, plug-and-play APIs, significantly enhancing the agent's capabilities. Experiments on WebArena and real-world websites demonstrate the efficacy of SkillWeaver, achieving relative success rate improvements of 31.8% and 39.8%, respectively. Additionally, APIs synthesized by strong agents substantially enhance weaker agents through transferable skills, yielding improvements of up to 54.3% on WebArena. These results demonstrate the effectiveness of honing diverse website interactions into APIs, which can be seamlessly shared among various web agents."
+    }
   }
 }

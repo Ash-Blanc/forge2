@@ -99,45 +99,52 @@ def fetch_arxiv_meta(arxiv_id: str) -> dict:
         return {}
 
 
-SYSTEM_PROMPT = """You are FORGE — a technical co-founder evaluating research papers for startup potential.
+SYSTEM_PROMPT = """You are FORGE — a technical startup ideation expert. Your job is to find NON-OBVIOUS, NOVEL applications that others would miss.
 
-Analyze the paper first, then identify the ONE most promising startup idea.
+The problem with most AI paper analysis: it says generic things like "use this for healthcare" or "apply to finance" - that's useless.
+
+Your job:
+1. Find the SPECIFIC technical capability (not the broad domain)
+2. Think of UNUSUAL, CREATIVE applications that the paper enables but no one is building
+3. Consider edge cases, niche markets, combinations with other tech
 
 OUTPUT JSON ONLY:
 
 {
   "paperAnalysis": {
-    "summary": "2-3 sentence overview of the paper's contribution",
-    "startupViabilityScore": "1-100 (Integer, how viable is this for a startup?)",
-    "viabilityReasoning": "Why did it get this score? Is it purely theoretical vs highly applicable?",
-    "coreBreakthrough": "The key technical innovation",
-    "keyInnovations": ["Innovation 1", "Innovation 2", "Innovation 3"],
-    "applications": ["Application area 1", "Application area 2"],
-    "limitations": ["Limitation 1", "Limitation 2"]
+    "summary": "2-3 sentence plain-English summary - what does this paper actually DO?",
+    "coreBreakthrough": "The ONE specific technical thing this enables (be precise)",
+    "keyInnovations": ["Specific technical insight 1", "Specific technical insight 2"],
+    "applications": [
+      "Niche/unusual application 1 - be specific about WHO would use it and WHY",
+      "Niche/unusual application 2",
+      "Niche/unusual application 3"
+    ],
+    "limitations": ["Real limitation 1", "Real limitation 2"]
   },
   "swot": {
-    "strengths": ["Strength 1", "Strength 2"],
-    "weaknesses": ["Weakness 1", "Weakness 2"],
-    "opportunities": ["Opportunity 1", "Opportunity 2"],
-    "threats": ["Threat 1", "Threat 2"]
+    "strengths": ["Technical strength 1", "Technical strength 2"],
+    "weaknesses": ["Technical weakness 1", "Technical weakness 2"],
+    "opportunities": ["Specific opportunity 1", "Specific opportunity 2"],
+    "threats": ["Specific threat 1", "Specific threat 2"]
   },
   "startupIdea": {
     "startupName": "Name",
-    "oneLiner": "Y Combinator style one-liner",
-    "theHook": "Why NOW?",
+    "oneLiner": "Y Combinator style (what it does, for who)",
+    "theHook": "Why NOW? What's the market timing?",
     "targetUser": {
-      "persona": "Specific role",
-      "painPoint": "Exact problem",
-      "currentAlternatives": "What they use now"
+      "persona": "VERY specific role - e.g. 'Junior QA engineer at Series A fintech' not 'developer'",
+      "painPoint": "Exact problem they face daily",
+      "currentAlternatives": "What do they use now? What's broken about it?"
     },
-    "coreTech": "Paper capability used",
+    "coreTech": "The paper capability used",
     "product": {
-      "coreFeature": "MVP feature",
-      "differentiation": "Why better"
+      "coreFeature": "The ONE MVP feature",
+      "differentiation": "Why better than [specific alternatives]"
     },
     "business": {
-      "pricingModel": "Specific pricing",
-      "gtm": "How to get customers"
+      "pricingModel": "Specific: $X/user/mo or $Y/enterprise",
+      "gtm": "How to get first 10 customers"
     },
     "metrics": {
       "novelty": "High/Medium/Low",
@@ -146,8 +153,7 @@ OUTPUT JSON ONLY:
       "mvpMonths": 1-6
     }
   }
-}
-Note: If the startupViabilityScore is extremely low (<40) because the paper is purely theoretical, explain why in viabilityReasoning and you may set startupIdea to null."""
+}"""
 
 
 COMPETITOR_RESEARCH_PROMPT = """You are an expert market researcher and competitive intelligence analyst.
@@ -259,7 +265,9 @@ def render_main_idea(data: dict):
     st.subheader("🚀 Startup Idea")
 
     if not idea:
-        st.warning("⚠️ This paper was evaluated as having too low commercial viability to generate a responsible startup idea. See the viability reasoning above.")
+        st.warning(
+            "⚠️ This paper was evaluated as having too low commercial viability to generate a responsible startup idea. See the viability reasoning above."
+        )
         return
 
     st.markdown(
@@ -304,75 +312,95 @@ def render_main_idea(data: dict):
     with tab4:
         st.subheader("Core Technology")
         st.info(idea.get("coreTech", ""))
-        
+
     with tab_comp:
         st.subheader("Live Market Intelligence")
-        
+
         # Check if we already have competitor data
         competitor_data = data.get("competitorIntelligence")
-        
+
         if competitor_data:
             st.info(f"**Market Verdict:** {competitor_data.get('marketVerdict', '')}")
-            
+
             comps = competitor_data.get("competitors", [])
             if not comps:
                 st.success("No direct strong competitors found! Blue ocean territory.")
             else:
                 for c in comps:
                     with st.container():
-                        st.markdown(f"""
+                        st.markdown(
+                            f"""
                         <div class='idea-card'>
-                            <h4 style='margin:0 0 0.5rem 0;'>{c.get('name', 'Unknown')}</h4>
-                            <a href="{c.get('url', '#')}" target="_blank" style="font-size: 0.8rem;">{c.get('url', 'No Website')}</a>
-                            <p style='margin: 0.5rem 0;'>{c.get('description', '')}</p>
-                            <p style='font-size: 0.8rem; color: var(--text-color); margin-bottom: 0.5rem'><strong>Pricing:</strong> {c.get('pricing', 'Unknown')}</p>
+                            <h4 style='margin:0 0 0.5rem 0;'>{c.get("name", "Unknown")}</h4>
+                            <a href="{c.get("url", "#")}" target="_blank" style="font-size: 0.8rem;">{c.get("url", "No Website")}</a>
+                            <p style='margin: 0.5rem 0;'>{c.get("description", "")}</p>
+                            <p style='font-size: 0.8rem; color: var(--text-color); margin-bottom: 0.5rem'><strong>Pricing:</strong> {c.get("pricing", "Unknown")}</p>
                             <div style="border-left: 3px solid #3b82f6; padding-left: 10px; margin-top: 10px;">
-                                <small><strong>Why we win:</strong> {c.get('differentiation', '')}</small>
+                                <small><strong>Why we win:</strong> {c.get("differentiation", "")}</small>
                             </div>
                         </div>
-                        """, unsafe_allow_html=True)
+                        """,
+                            unsafe_allow_html=True,
+                        )
         else:
-            st.write("Run a live web search to find current platforms and alternatives for this specific idea.")
-            
+            st.write(
+                "Run a live web search to find current platforms and alternatives for this specific idea."
+            )
+
             # Use columns to center/style the button
             button_col1, button_col2, button_col3 = st.columns([1, 2, 1])
             with button_col2:
-                if st.button("🔍 Run Deep Competitor Research", use_container_width=True, key=f"comp_{st.session_state.current_arxiv_id}"):
-                    with st.spinner("Agents are searching DuckDuckGo and analyzing the market..."):
-                        
+                if st.button(
+                    "🔍 Run Deep Competitor Research",
+                    use_container_width=True,
+                    key=f"comp_{st.session_state.current_arxiv_id}",
+                ):
+                    with st.spinner(
+                        "Agents are searching DuckDuckGo and analyzing the market..."
+                    ):
                         try:
                             # Set up a new agent with search tools
                             comp_agent = Agent(
-                                model="cerebras:llama3.3-70b", # Often better at reasoning over live search
+                                model="cerebras:llama3.3-70b",  # Often better at reasoning over live search
                                 description=COMPETITOR_RESEARCH_PROMPT,
                                 tools=[DuckDuckGoTools()],
                                 markdown=False,
                             )
-                            
+
                             idea_context = f"Idea Name: {idea.get('startupName')}\nOne-liner: {idea.get('oneLiner')}\nTarget User: {target.get('persona')}\nCore Feature: {idea.get('product', {}).get('coreFeature')}"
-                            
+
                             comp_raw = ""
                             for chunk in comp_agent.run(idea_context, stream=True):
-                                content = chunk.content if hasattr(chunk, "content") else str(chunk)
+                                content = (
+                                    chunk.content
+                                    if hasattr(chunk, "content")
+                                    else str(chunk)
+                                )
                                 if content:
                                     comp_raw += content
-                                    
-                            clean_comp = re.sub(r"```json\s*", "", comp_raw, flags=re.IGNORECASE)
+
+                            clean_comp = re.sub(
+                                r"```json\s*", "", comp_raw, flags=re.IGNORECASE
+                            )
                             clean_comp = re.sub(r"```\s*", "", clean_comp).strip()
                             match_comp = re.search(r"\{[\s\S]*\}", clean_comp)
-                            
+
                             if match_comp:
                                 comp_json = json.loads(match_comp.group(0))
-                                
+
                                 # Save back to the session state under the current ID
                                 current_id = st.session_state.current_arxiv_id
-                                st.session_state.sessions[current_id]["data"]["competitorIntelligence"] = comp_json
+                                st.session_state.sessions[current_id]["data"][
+                                    "competitorIntelligence"
+                                ] = comp_json
                                 save_sessions(st.session_state.sessions)
                                 st.rerun()
                             else:
-                                st.error("Failed to parse agent findings. Please try again.")
+                                st.error(
+                                    "Failed to parse agent findings. Please try again."
+                                )
                                 st.code(comp_raw)
-                                
+
                         except Exception as e:
                             st.error(f"Search failed: {e}")
 
