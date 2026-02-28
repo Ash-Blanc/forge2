@@ -1,5 +1,7 @@
 """Agent definitions and prompts for FORGE Streamlit prototype."""
 
+import os
+
 from agno.agent import Agent
 from agno.tools.parallel import ParallelTools
 from agno.tools.arxiv import ArxivTools
