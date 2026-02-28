@@ -1,13 +1,21 @@
 import streamlit as st
-import urllib.request
-import xml.etree.ElementTree as ET
 import re
 import json
 import os
 from datetime import datetime
-from agno.agent import Agent
-from agno.tools.duckduckgo import DuckDuckGoTools
 from dotenv import load_dotenv
+from utils import parse_agent_json, extract_arxiv_id, fetch_arxiv_meta, build_saas_prompt
+from agents import (
+    AVAILABLE_MODELS,
+    DEFAULT_MODEL_KEY,
+    run_analysis_agent,
+    run_competitor_agent,
+    run_suggestion_agent,
+    run_saas_boost_agent,
+    SYSTEM_PROMPT,
+    COMPETITOR_RESEARCH_PROMPT,
+    SUGGESTION_PROMPT,
+)
 
 SESSIONS_FILE = os.path.join(os.path.dirname(__file__), "sessions.json")
 
@@ -30,13 +38,18 @@ def save_sessions(sessions: dict) -> None:
 def init_session_state() -> None:
     if "sessions" not in st.session_state:
         st.session_state.sessions = load_sessions()
+    if "current_session_id" not in st.session_state:
+        st.session_state.current_session_id = None
+    # Legacy key support
     if "current_arxiv_id" not in st.session_state:
         st.session_state.current_arxiv_id = None
+    if "app_mode" not in st.session_state:
+        st.session_state.app_mode = "📄 Paper → Idea"
 
 
 init_session_state()
 
-env_path = os.path.join(os.path.dirname(__file__), "..", "full-stack-web", ".env.local")
+env_path = os.path.join(os.path.dirname(__file__), ".env")
 load_dotenv(env_path)
 
 st.set_page_config(
@@ -205,7 +218,50 @@ Abstract: {meta.get("abstract", "")[:5000]}
 Return ONLY valid JSON."""
 
 
-def render_main_idea(data: dict):
+def render_saas_boost(data: dict):
+    if not data:
+        return
+
+    st.subheader("🎯 Overall R&D Strategy")
+    st.info(data.get("overallStrategy", "Explore the papers below to gain a technical advantage."))
+
+    st.subheader("📚 Research Boosts")
+    papers = data.get("papers", [])
+    
+    if not papers:
+        st.warning("No specific papers found.")
+        return
+
+    for i, p in enumerate(papers):
+        with st.container():
+            st.markdown(
+                f"""
+                <div class='idea-card'>
+                    <h4 style='margin:0 0 0.5rem 0;'>{p.get('title', 'Unknown Title')}</h4>
+                    <a href="https://arxiv.org/abs/{p.get('arxivId', '')}" target="_blank" style="font-size: 0.8rem;">arXiv:{p.get('arxivId', '')} • {p.get('year', '')}</a>
+                    <p style='margin: 0.5rem 0;'><strong>Relevance:</strong> {p.get('relevance', '')}</p>
+                    <div style="background-color: var(--background-color); padding: 10px; border-radius: 8px; margin-top: 10px;">
+                        <span style="color: #8b5cf6; font-weight: 600;">💡 Boost Idea:</span> {p.get('boostIdea', '')}
+                    </div>
+                    <p style='font-size: 0.85rem; margin-top: 10px;'><em>{p.get('implementationHint', '')}</em></p>
+                    <div class='tag-container'>
+                        <span class='custom-tag'>Difficulty: {p.get('difficulty', '?')}</span>
+                        <span class='custom-tag'>Impact: {p.get('impact', '?')}</span>
+                    </div>
+                </div>
+                """,
+                unsafe_allow_html=True,
+            )
+            
+            if st.button(f"Distill this paper →", key=f"distill_{p.get('arxivId', i)}"):
+                # Switch mode and trigger distillation
+                st.session_state.app_mode = "📄 Paper → Idea"
+                st.session_state.current_session_id = None
+                st.session_state.arxiv_input_override = p.get('arxivId', '')
+                st.rerun()
+
+
+def render_main_idea(data: dict, selected_model: str):
     paper = data.get("paperAnalysis", {})
     swot = data.get("swot", {})
     idea = data.get("startupIdea", {})
@@ -353,17 +409,17 @@ def render_main_idea(data: dict):
                 if st.button(
                     "🔍 Run Deep Competitor Research",
                     use_container_width=True,
-                    key=f"comp_{st.session_state.current_arxiv_id}",
+                    key=f"comp_{st.session_state.current_session_id}",
                 ):
                     with st.spinner(
-                        "Agents are searching DuckDuckGo and analyzing the market..."
+                        "Searching the web with Parallel.ai and analyzing the market..."
                     ):
                         try:
-                            # Set up a new agent with search tools
+                            # Set up a new agent with Parallel.ai search tools
                             comp_agent = Agent(
-                                model="cerebras:llama3.3-70b",  # Often better at reasoning over live search
+                                model=selected_model,
                                 description=COMPETITOR_RESEARCH_PROMPT,
-                                tools=[DuckDuckGoTools()],
+                                tools=[ParallelTools(enable_search=True, enable_extract=True, max_results=5)],
                                 markdown=False,
                             )
 
@@ -379,17 +435,11 @@ def render_main_idea(data: dict):
                                 if content:
                                     comp_raw += content
 
-                            clean_comp = re.sub(
-                                r"```json\s*", "", comp_raw, flags=re.IGNORECASE
-                            )
-                            clean_comp = re.sub(r"```\s*", "", clean_comp).strip()
-                            match_comp = re.search(r"\{[\s\S]*\}", clean_comp)
+                            comp_json = parse_agent_json(comp_raw)
 
-                            if match_comp:
-                                comp_json = json.loads(match_comp.group(0))
-
+                            if comp_json:
                                 # Save back to the session state under the current ID
-                                current_id = st.session_state.current_arxiv_id
+                                current_id = st.session_state.current_session_id
                                 st.session_state.sessions[current_id]["data"][
                                     "competitorIntelligence"
                                 ] = comp_json
@@ -405,7 +455,7 @@ def render_main_idea(data: dict):
                             st.error(f"Search failed: {e}")
 
 
-def render_suggestions(suggestions: list, parent_arxiv_id: str):
+def render_suggestions(suggestions: list, parent_session_id: str):
     st.divider()
     st.subheader("💡 Other Ideas to Explore")
 
@@ -424,20 +474,21 @@ def render_suggestions(suggestions: list, parent_arxiv_id: str):
                     unsafe_allow_html=True,
                 )
 
-                if st.button(f"Explore →", key=f"suggest_{parent_arxiv_id}_{i}"):
-                    new_arxiv_id = f"{parent_arxiv_id}_alt{i + 1}"
-                    st.session_state.sessions[new_arxiv_id] = {
+                if st.button(f"Explore →", key=f"suggest_{parent_session_id}_{i}"):
+                    new_session_id = f"{parent_session_id}_alt{i + 1}"
+                    st.session_state.sessions[new_session_id] = {
                         "timestamp": datetime.now().isoformat(),
                         "productName": suggestion.get("startupName", "TBD"),
                         "data": {"idea": suggestion},
-                        "meta": st.session_state.sessions.get(parent_arxiv_id, {}).get(
+                        "meta": st.session_state.sessions.get(parent_session_id, {}).get(
                             "meta", {}
                         ),
                         "is_suggestion": True,
-                        "parent_id": parent_arxiv_id,
+                        "parent_id": parent_session_id,
+                        "mode": "arxiv"
                     }
                     save_sessions(st.session_state.sessions)
-                    st.session_state.current_arxiv_id = new_arxiv_id
+                    st.session_state.current_session_id = new_session_id
                     st.rerun()
 
 
@@ -447,83 +498,136 @@ with st.sidebar:
         "<h1 style='font-size: 1.5rem;'>🛠️ Research Forge</h1>", unsafe_allow_html=True
     )
     st.caption("v2.0 | Deep Tech Distillery")
+    
+    # Mode toggle
+    modes = ["📄 Paper → Idea", "💼 SaaS → Papers"]
+    st.session_state.app_mode = st.radio(
+        "Mode",
+        modes,
+        index=modes.index(st.session_state.app_mode) if st.session_state.app_mode in modes else 0,
+        label_visibility="collapsed"
+    )
+
     st.divider()
 
-    arxiv_input = st.text_input("arXiv ID or URL", placeholder="2409.13449")
-    analyze_btn = st.button(
-        "Distill Blueprint", type="primary", use_container_width=True
+    # Model Selection
+    selected_model_name = st.selectbox(
+        "Model",
+        options=list(AVAILABLE_MODELS.keys()),
+        index=list(AVAILABLE_MODELS.keys()).index(DEFAULT_MODEL_KEY)
     )
+    selected_model = AVAILABLE_MODELS[selected_model_name]
+    
+    st.divider()
+    
+    # Input Area
+    arxiv_input = ""
+    saas_input = ""
+    analyze_btn = False
+    
+    if st.session_state.app_mode == "📄 Paper → Idea":
+        # Handle pre-filled arXiv ID from Mode 2
+        default_val = st.session_state.get("arxiv_input_override", "")
+        arxiv_input = st.text_input("arXiv ID or URL", value=default_val, placeholder="2409.13449")
+        analyze_btn = st.button(
+            "Distill Blueprint", type="primary", use_container_width=True
+        )
+        # Clear override if it was used
+        if default_val and st.session_state.arxiv_input_override:
+            st.session_state.arxiv_input_override = ""
+
+    elif st.session_state.app_mode == "💼 SaaS → Papers":
+        saas_input = st.text_area("Describe your SaaS product...", placeholder="A B2B platform that automates API testing using AI...", height=120)
+        analyze_btn = st.button(
+            "Find Research Boosts", type="primary", use_container_width=True
+        )
 
     st.divider()
     st.subheader("📚 History")
     sessions = st.session_state.sessions
 
     if sessions:
-        for arxiv_id, data in sorted(
+        for session_id, data in sorted(
             sessions.items(), key=lambda x: x[1].get("timestamp", ""), reverse=True
         ):
             col1, col2 = st.columns([4, 1])
             with col1:
-                label = data.get("productName", arxiv_id)
+                label = data.get("productName", session_id)
+                mode = data.get("mode", "arxiv")
+                icon = "💼 " if mode == "saas" else "📄 "
+                
                 if data.get("is_suggestion"):
                     label = f"↳ {label}"
-                if st.button(label[:25], key=f"load_{arxiv_id}"):
-                    st.session_state.current_arxiv_id = arxiv_id
+                else: 
+                    label = f"{icon}{label}"
+                    
+                if st.button(label[:25], key=f"load_{session_id}"):
+                    st.session_state.current_session_id = session_id
+                    # Optional: Switch mode implicitly when loading history
+                    st.session_state.app_mode = "💼 SaaS → Papers" if mode == "saas" else "📄 Paper → Idea"
                     st.rerun()
             with col2:
-                if st.button("🗑️", key=f"del_{arxiv_id}"):
-                    del st.session_state.sessions[arxiv_id]
+                if st.button("🗑️", key=f"del_{session_id}"):
+                    del st.session_state.sessions[session_id]
                     save_sessions(st.session_state.sessions)
-                    if st.session_state.current_arxiv_id == arxiv_id:
-                        st.session_state.current_arxiv_id = None
+                    if st.session_state.current_session_id == session_id:
+                        st.session_state.current_session_id = None
                     st.rerun()
     else:
         st.caption("No analyses yet")
 
     if st.button("Clear All", use_container_width=True):
         st.session_state.sessions = {}
-        st.session_state.current_arxiv_id = None
+        st.session_state.current_session_id = None
         save_sessions({})
         st.rerun()
 
 
 # Main - View saved session
 if (
-    st.session_state.current_arxiv_id
-    and st.session_state.current_arxiv_id in st.session_state.sessions
+    st.session_state.current_session_id
+    and st.session_state.current_session_id in st.session_state.sessions
 ):
-    saved_data = st.session_state.sessions[st.session_state.current_arxiv_id]
+    # Backward compatibility for legacy keys
+    if not st.session_state.current_arxiv_id and st.session_state.current_session_id and "saas_" not in st.session_state.current_session_id:
+        st.session_state.current_arxiv_id = st.session_state.current_session_id
+        
+    saved_data = st.session_state.sessions[st.session_state.current_session_id]
 
-    st.info(f"📂 {st.session_state.current_arxiv_id}")
+    st.info(f"📂 {st.session_state.current_session_id}")
 
-    if st.session_state.current_arxiv_id.endswith(("_alt1", "_alt2", "_alt3")):
+    if st.session_state.current_session_id.endswith(("_alt1", "_alt2", "_alt3")):
         parent = saved_data.get("parent_id", "")
         if parent and st.button("← Back to main idea"):
-            st.session_state.current_arxiv_id = parent
+            st.session_state.current_session_id = parent
             st.rerun()
 
     if st.button("← New Search"):
-        st.session_state.current_arxiv_id = None
+        st.session_state.current_session_id = None
         st.rerun()
 
     data = saved_data.get("data", {})
     if data:
-        render_main_idea(data)
+        mode = saved_data.get("mode", "arxiv")
+        if mode == "saas":
+            render_saas_boost(data)
+        else:
+            render_main_idea(data, selected_model)
 
-        if not saved_data.get("is_suggestion"):
-            suggestions = data.get("suggestions", [])
-            if suggestions:
-                render_suggestions(suggestions, st.session_state.current_arxiv_id)
+            if not saved_data.get("is_suggestion"):
+                suggestions = data.get("suggestions", [])
+                if suggestions:
+                    render_suggestions(suggestions, st.session_state.current_session_id)
 
 # Main - New analysis
-elif analyze_btn and arxiv_input:
-    arxiv_id = extract_arxiv_id(arxiv_input)
+elif analyze_btn and st.session_state.app_mode == "📄 Paper → Idea" and arxiv_input:
+    session_id = extract_arxiv_id(arxiv_input)
 
-    if not arxiv_id:
+    if not session_id:
         st.error("Invalid arXiv ID. Try: 2409.13449")
     else:
         with st.spinner("Retrieving paper..."):
-            meta = fetch_arxiv_meta(arxiv_id)
+            meta = fetch_arxiv_meta(session_id)
 
         if not meta:
             st.error("Could not find paper on arXiv.")
@@ -538,7 +642,7 @@ elif analyze_btn and arxiv_input:
 
             try:
                 agent = Agent(
-                    model="cerebras:gpt-oss-120b",
+                    model=selected_model,
                     description=SYSTEM_PROMPT,
                     markdown=False,
                 )
@@ -565,13 +669,14 @@ elif analyze_btn and arxiv_input:
                     try:
                         data = json.loads(match.group(0))
 
-                        st.session_state.sessions[arxiv_id] = {
+                        st.session_state.sessions[session_id] = {
                             "timestamp": datetime.now().isoformat(),
                             "productName": data.get("startupIdea", {}).get(
                                 "startupName", "TBD"
                             ),
                             "data": data,
                             "meta": meta,
+                            "mode": "arxiv"
                         }
 
                         prog.progress(85)
@@ -581,7 +686,7 @@ elif analyze_btn and arxiv_input:
 
                         try:
                             suggestion_agent = Agent(
-                                model="cerebras:gpt-oss-120b",
+                                model=selected_model,
                                 description=SUGGESTION_PROMPT,
                                 markdown=False,
                             )
@@ -609,12 +714,12 @@ elif analyze_btn and arxiv_input:
                                 sugg_data = json.loads(match_sugg.group(0))
                                 suggestions = sugg_data.get("suggestions", [])
                                 data["suggestions"] = suggestions
-                                st.session_state.sessions[arxiv_id]["data"] = data
+                                st.session_state.sessions[session_id]["data"] = data
                         except Exception as e:
                             st.caption(f"Could not generate suggestions: {e}")
 
                         save_sessions(st.session_state.sessions)
-                        st.session_state.current_arxiv_id = arxiv_id
+                        st.session_state.current_session_id = session_id
 
                         prog.progress(100)
                         status.update(label="Done", state="complete", expanded=False)
@@ -623,10 +728,10 @@ elif analyze_btn and arxiv_input:
                             icon="💡",
                         )
 
-                        render_main_idea(data)
+                        render_main_idea(data, selected_model)
 
                         if data.get("suggestions"):
-                            render_suggestions(data["suggestions"], arxiv_id)
+                            render_suggestions(data["suggestions"], session_id)
 
                     except json.JSONDecodeError:
                         st.error("Parse error")
@@ -635,13 +740,62 @@ elif analyze_btn and arxiv_input:
             except Exception as e:
                 st.error(f"Error: {str(e)}")
 
+elif analyze_btn and st.session_state.app_mode == "💼 SaaS → Papers" and saas_input:
+    session_id = f"saas_{datetime.now().strftime('%Y%m%d%H%M%S')}"
+
+    with st.spinner("Analyzing SaaS product..."):
+        prog = st.progress(0)
+        status = st.status("Scouting arXiv for relevant technical boosts...", expanded=True)
+
+        try:
+            # 1. Run SaaS Boost Agent
+            prog.progress(20)
+            status.update(label="Searching live web for research...", state="running")
+
+            raw, data = run_saas_boost_agent(saas_input, selected_model)
+            
+            prog.progress(90)
+
+            if not data:
+                st.error("Failed to parse research suggestions.")
+                st.code(raw)
+            else:
+                st.session_state.sessions[session_id] = {
+                    "timestamp": datetime.now().isoformat(),
+                    "productName": saas_input[:40] + "..." if len(saas_input) > 40 else saas_input,
+                    "data": data,
+                    "mode": "saas",
+                    "meta": {"title": f"SaaS: {saas_input[:20]}"}
+                }
+                
+                save_sessions(st.session_state.sessions)
+                st.session_state.current_session_id = session_id
+                
+                prog.progress(100)
+                status.update(label="Done", state="complete", expanded=False)
+                st.toast("Research boosts generated!", icon="💼")
+                
+                render_saas_boost(data)
+
+        except Exception as e:
+            st.error(f"Error during research scout: {str(e)}")
+
+
 else:
     st.markdown(
         "<div class='saas-header'>Distill Intelligence.</div>", unsafe_allow_html=True
     )
-    st.write("Enter an arXiv paper to find the best startup idea.")
-    st.divider()
-    c1, c2, c3 = st.columns(3)
-    c1.markdown("### 01. Ingest\nPaper from arXiv")
-    c2.markdown("### 02. Analyze\nFind the best idea")
-    c3.markdown("### 03. Explore\nTry alternative angles")
+    if st.session_state.app_mode == "📄 Paper → Idea":
+        st.write("Enter an arXiv paper to find the best startup idea.")
+        st.divider()
+        c1, c2, c3 = st.columns(3)
+        c1.markdown("### 01. Ingest\nPaper from arXiv")
+        c2.markdown("### 02. Analyze\nFind the best idea")
+        c3.markdown("### 03. Explore\nTry alternative angles")
+    else:
+        st.write("Enter a SaaS idea to find the most relevant academic research to give it a technical edge.")
+        st.divider()
+        c1, c2, c3 = st.columns(3)
+        c1.markdown("### 01. Describe\nYour SaaS idea")
+        c2.markdown("### 02. Scout\nReal arXiv papers")
+        c3.markdown("### 03. Boost\nImplement the tech")

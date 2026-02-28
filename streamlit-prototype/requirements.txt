@@ -2,4 +2,4 @@ agno>=1.0.0
 streamlit
 python-dotenv
 cerebras-cloud-sdk
-duckduckgo-search>=5.0.0
+parallel-web

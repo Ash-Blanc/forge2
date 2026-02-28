@@ -731,5 +731,257 @@
       "published": "2025-04-09T17:51:50Z",
       "abstract": "To survive and thrive in complex environments, humans have evolved sophisticated self-improvement mechanisms through environment exploration, hierarchical abstraction of experiences into reuseable skills, and collaborative construction of an ever-growing skill repertoire. Despite recent advancements, autonomous web agents still lack crucial self-improvement capabilities, struggling with procedural knowledge abstraction, refining skills, and skill composition. In this work, we introduce SkillWeaver, a skill-centric framework enabling agents to self-improve by autonomously synthesizing reusable skills as APIs. Given a new website, the agent autonomously discovers skills, executes them for practice, and distills practice experiences into robust APIs. Iterative exploration continually expands a library of lightweight, plug-and-play APIs, significantly enhancing the agent's capabilities. Experiments on WebArena and real-world websites demonstrate the efficacy of SkillWeaver, achieving relative success rate improvements of 31.8% and 39.8%, respectively. Additionally, APIs synthesized by strong agents substantially enhance weaker agents through transferable skills, yielding improvements of up to 54.3% on WebArena. These results demonstrate the effectiveness of honing diverse website interactions into APIs, which can be seamlessly shared among various web agents."
     }
+  },
+  "2602.21548": {
+    "timestamp": "2026-02-28T03:08:43.784367",
+    "productName": "CacheFlux",
+    "data": {
+      "paperAnalysis": {
+        "summary": "DualPath redesigns the KV\u2011Cache data flow in multi\u2011turn, agentic LLM inference by adding a storage\u2011to\u2011decode path and using RDMA to shuttle the cache to prefill engines, eliminating the storage\u2011NIC bottleneck and roughly doubling throughput. It also includes a global scheduler that dynamically balances work across prefill and decode nodes.",
+        "coreBreakthrough": "Dual\u2011path KV\u2011Cache loading that injects the cache first into decoding engines and then transfers it over RDMA to prefill engines, bypassing the saturated storage NIC.",
+        "keyInnovations": [
+          "Storage\u2011to\u2011decode KV\u2011Cache path that offloads I/O from prefill NICs",
+          "RDMA\u2011based cache hand\u2011off between decode and prefill nodes to avoid network congestion",
+          "Global scheduler that dynamically reallocates workloads between prefill and decode engines"
+        ],
+        "applications": [
+          "Real\u2011time collaborative coding assistant for large enterprises where each developer\u2019s session has a multi\u2011turn LLM context; the assistant streams cache via DualPath so the IDE never stalls on context loading.",
+          "Interactive robotics simulation platform that swaps between many robot agents in a shared environment; DualPath lets the simulator preload each robot\u2019s KV\u2011Cache on a decode node and instantly push it to the planner (prefill) node for sub\u2011millisecond reaction.",
+          "Personalized tutoring SaaS that maintains per\u2011student conversation state across thousands of concurrent sessions; DualPath enables the tutoring engine to pre\u2011warm cache on cheap decode nodes and hand it off, cutting server costs while meeting sub\u2011second latency SLOs."
+        ],
+        "limitations": [
+          "Requires RDMA\u2011capable networking and compatible hardware, limiting deployment to data\u2011center environments.",
+          "Adds extra memory overhead because KV\u2011Cache must reside simultaneously on decode and prefill nodes during transfer."
+        ]
+      },
+      "swot": {
+        "strengths": [
+          "Eliminates storage\u2011NIC saturation, the primary bottleneck in current disaggregated LLM serving.",
+          "Works with existing LLM inference stacks (e.g., vLLM, DeepSpeed) via a thin runtime layer."
+        ],
+        "weaknesses": [
+          "Dependency on high\u2011speed RDMA networks makes it less useful for edge or cloud\u2011only deployments.",
+          "Complex scheduling logic introduces operational overhead when scaling to heterogeneous clusters."
+        ],
+        "opportunities": [
+          "Growing market for multi\u2011turn AI agents (coding assistants, autonomous workflow bots) that need sub\u2011second latency.",
+          "Potential to license the RDMA hand\u2011off module to major cloud providers seeking to boost LLM throughput."
+        ],
+        "threats": [
+          "Cloud providers may roll out their own proprietary cache\u2011prefetch mechanisms that render DualPath redundant.",
+          "Future LLM architectures that shrink KV\u2011Cache size (e.g., retrieval\u2011augmented models) could reduce the relevance of the bottleneck."
+        ]
+      },
+      "startupIdea": {
+        "startupName": "CacheFlux",
+        "oneLiner": "CacheFlux streams LLM conversation state across compute nodes via RDMA, removing storage bottlenecks for high\u2011turn AI agents.",
+        "theHook": "Enterprise AI platforms are exploding with multi\u2011turn agents; today they spend 30\u201150% of inference time shuffling KV\u2011Cache. DualPath\u2011style RDMA streaming is now mature in NICs, making a turnkey solution feasible.",
+        "targetUser": {
+          "persona": "Site reliability engineer for an AI SaaS platform that runs 10k+ concurrent multi\u2011turn agents (e.g., a corporate coding assistant service).",
+          "painPoint": "KV\u2011Cache loading stalls cause latency spikes and forces over\u2011provisioning of compute nodes to meet SLOs.",
+          "currentAlternatives": "Manual cache sharding, scaling up prefill nodes, or using slower SSD\u2011backed prefetch; all either waste cost or still breach latency targets."
+        },
+        "coreTech": "Dual\u2011path KV\u2011Cache loading with RDMA\u2011based hand\u2011off between decode and prefill engines.",
+        "product": {
+          "coreFeature": "A plug\u2011in runtime that automatically routes KV\u2011Cache loads through a decode node and streams it via RDMA to the prefill node, exposed via a simple SDK.",
+          "differentiation": "Zero\u2011code integration with existing serving stacks, up\u2011to\u20112\u00d7 throughput gain without extra compute, and deterministic latency unlike heuristic cache sharding."
+        },
+        "business": {
+          "pricingModel": "$0.12 per 10k tokens processed with CacheFlux\u2011enabled inference, or a flat $750/mo enterprise tier that includes SLA\u2011backed RDMA support and custom scheduler tuning.",
+          "gtm": "Launch a free pilot with two high\u2011profile AI SaaS customers (coding\u2011assistant and tutoring platforms), publish benchmark case studies, then target AI platform engineers via developer conferences and LinkedIn ads."
+        },
+        "metrics": {
+          "novelty": "High",
+          "competition": "Low",
+          "confidence": 8,
+          "mvpMonths": 4
+        }
+      },
+      "suggestions": [
+        {
+          "startupName": "CacheSync.ai",
+          "oneLiner": "A managed KV\u2011Cache synchronization service that uses RDMA to instantly mirror LLM state across prefill and decode nodes, letting developers scale multi\u2011turn agents without custom infra.",
+          "angle": "Platform\u2011as\u2011a\u2011Service for KV\u2011Cache state replication"
+        },
+        {
+          "startupName": "RDMA\u2011LLM SDK",
+          "oneLiner": "A developer toolkit that abstracts DualPath\u2019s dual\u2011path loading and RDMA transfers into plug\u2011and\u2011play libraries for any LLM serving stack, cutting integration time from weeks to days.",
+          "angle": "Developer\u2011focused SDK / library for high\u2011throughput LLM inference"
+        },
+        {
+          "startupName": "CacheFlux Insights",
+          "oneLiner": "An observability and autoscaling platform that monitors KV\u2011Cache traffic, predicts storage\u2011network congestion, and dynamically rebalances prefill/decode workloads using the DualPath scheduler.",
+          "angle": "Monitoring, analytics, and intelligent orchestration layer for agentic AI workloads"
+        }
+      ]
+    },
+    "meta": {
+      "title": "DualPath: Breaking the Storage Bandwidth Bottleneck in Agentic LLM Inference",
+      "authors": [
+        "Yongtong Wu",
+        "Shaoyuan Chen",
+        "Yinmin Zhong",
+        "Rilin Huang",
+        "Yixuan Tan",
+        "Wentao Zhang",
+        "Liyue Zhang",
+        "Shangyan Zhou",
+        "Yuxuan Liu",
+        "Shunfeng Zhou",
+        "Mingxing Zhang",
+        "Xin Jin",
+        "Panpan Huang"
+      ],
+      "published": "2026-02-25T04:10:58Z",
+      "abstract": "The performance of multi-turn, agentic LLM inference is increasingly dominated by KV-Cache storage I/O rather than computation. In prevalent disaggregated architectures, loading the massive KV-Cache from external storage creates a fundamental imbalance: storage NICs on prefill engines become bandwidth-saturated, while those on decoding engines remain idle. This asymmetry severely constrains overall system throughput.   We present DualPath, an inference system that breaks this bottleneck by introducing dual-path KV-Cache loading. Beyond the traditional storage-to-prefill path, DualPath enables a novel storage-to-decode path, in which the KV-Cache is loaded into decoding engines and then efficiently transferred to prefill engines via RDMA over the compute network. DualPath combines this optimized data path -- which inherently avoids network congestion and avoids interference with latency-critical model execution communications -- with a global scheduler that dynamically balances load across prefill and decode engines.   Our evaluation on three models with production agentic workloads demonstrates that DualPath improves offline inference throughput by up to 1.87$\\times$ on our in-house inference system. It can also improve online serving throughput by an average factor of 1.96$\\times$ without violating SLO."
+    }
+  },
+  "2602.08354": {
+    "timestamp": "2026-02-28T03:27:03.884632",
+    "productName": "SageFlow",
+    "data": {
+      "paperAnalysis": {
+        "summary": "The paper shows that large reasoning models already contain an implicit signal for when they have reached a satisfactory answer, but standard sampling hides this. By introducing the SAGE sampling paradigm, the authors expose and exploit this self\u2011aware stopping behavior, yielding shorter, more accurate chains of thought and faster inference on math benchmarks.",
+        "coreBreakthrough": "A sampling strategy (SAGE) that detects and follows the model's internal stop\u2011thinking signal, enabling early termination of reasoning chains without sacrificing accuracy.",
+        "keyInnovations": [
+          "Self\u2011aware stopping detection that turns an implicit model capability into an explicit control signal.",
+          "Mixed\u2011sampling reinforcement learning (SAGE\u2011RL) that injects efficient reasoning patterns into standard pass@1 inference."
+        ],
+        "applications": [
+          "Real\u2011time algorithmic trading bots that need sub\u2011100\u202fms decision latency; the broker\u2019s latency\u2011sensitive risk engine would use SAGE to get mathematically correct trade signals instantly.",
+          "Edge\u2011AI for industrial IoT diagnostics (e.g., furnace fault detection) where on\u2011device compute is limited; SAGE lets a tiny on\u2011edge LLM stop reasoning early, conserving power while still delivering accurate root\u2011cause explanations.",
+          "Interactive math tutoring platforms that provide instant feedback to K\u201112 students; SAGE reduces wait time from seconds to fractions of a second, keeping the learning flow uninterrupted."
+        ],
+        "limitations": [
+          "Requires calibration of the stop signal for each model size and domain; mis\u2011calibration can lead to premature termination.",
+          "Demonstrated mainly on mathematical reasoning benchmarks \u2013 generalization to open\u2011ended or narrative tasks is unproven."
+        ]
+      },
+      "swot": {
+        "strengths": [
+          "Leverages an already\u2011present capability in LLMs, no extra parameters needed.",
+          "Provides both speed and accuracy gains simultaneously."
+        ],
+        "weaknesses": [
+          "Sensitive to sampling temperature and prompts; may need per\u2011deployment tuning.",
+          "Effectiveness drops for models that lack a strong internal convergence signal."
+        ],
+        "opportunities": [
+          "Explosion of low\u2011latency AI use\u2011cases (trading, AR/VR, autonomous agents).",
+          "Potential to combine SAGE with retrieval\u2011augmented generation for faster fact\u2011checking."
+        ],
+        "threats": [
+          "Competing firms may publish alternative early\u2011exit techniques that don\u2019t rely on stop\u2011signal detection.",
+          "Future LLM architectures might change internal dynamics, making the stop signal disappear."
+        ]
+      },
+      "startupIdea": {
+        "startupName": "SageFlow",
+        "oneLiner": "Lightning\u2011fast, compute\u2011efficient AI reasoning for latency\u2011critical decision makers.",
+        "theHook": "The market now demands sub\u2011second AI decisions (high\u2011frequency finance, edge IoT, live tutoring) while current LLM APIs still run lengthy CoTs, creating a clear window for a stop\u2011aware inference layer.",
+        "targetUser": {
+          "persona": "Quantitative risk analyst on a high\u2011frequency trading desk",
+          "painPoint": "Every millisecond of model latency costs potential profit; current LLM services add 200\u2011500\u202fms per signal, making them unusable for live trading decisions.",
+          "currentAlternatives": "Rule\u2011based heuristics or lightweight proprietary models that sacrifice reasoning depth; they either miss complex patterns or are too slow."
+        },
+        "coreTech": "SAGE sampling \u2013 self\u2011aware guided early\u2011exit inference that stops reasoning exactly when the model signals confidence.",
+        "product": {
+          "coreFeature": "API endpoint that returns a mathematically vetted prediction in <\u202f100\u202fms by auto\u2011terminating the chain\u2011of\u2011thought using SAGE.",
+          "differentiation": "Higher accuracy than rule\u2011based heuristics while delivering latency up to 5\u00d7 faster than standard LLM CoT calls."
+        },
+        "business": {
+          "pricingModel": "$0.002 per request (up to 10\u202fk tokens) or enterprise tier $2,000/month for 1\u202fM\u202frequests with SLA <\u202f50\u202fms.",
+          "gtm": "Start with pilot programs at boutique quant funds via a developer\u2011focused sandbox, then expand to IoT device manufacturers through SDK partnerships and targeted webinars at industry conferences."
+        },
+        "metrics": {
+          "novelty": "High",
+          "competition": "Low",
+          "confidence": 8,
+          "mvpMonths": 3
+        }
+      },
+      "suggestions": [
+        {
+          "startupName": "ReasonFlow",
+          "oneLiner": "A plug\u2011and\u2011play SDK that embeds SAGE\u2011based early\u2011stop sampling into any LLM, cutting inference latency by up to 70% for edge AI applications.",
+          "angle": "Developer toolkit / platform integration"
+        },
+        {
+          "startupName": "RapidDiagnose AI",
+          "oneLiner": "A cloud service tailored for medical imaging and triage systems that leverages SAGE\u2011guided reasoning to deliver sub\u2011second diagnostic suggestions with verifiable confidence.",
+          "angle": "Vertical focus on healthcare decision\u2011support"
+        },
+        {
+          "startupName": "FinSense Optimizer",
+          "oneLiner": "Enterprise SaaS that monitors and re\u2011trains trading\u2011algorithm models using SAGE\u2011RL, ensuring high\u2011frequency trading bots make accurate split\u2011second decisions while minimizing compute spend.",
+          "angle": "Enterprise finance / high\u2011frequency trading"
+        }
+      ],
+      "competitorIntelligence": {
+        "competitors": [
+          {
+            "name": "Myrtle.ai (VOLLO)",
+            "url": "https://myrtle.ai/products/vollo-for-capital-markets/",
+            "description": "Provides a microsecond\u2011scale AI inference accelerator (VOLLO) for capital\u2011markets, delivering sub\u2011millisecond model latency via specialized hardware and software stack.",
+            "pricing": "Enterprise\u2011custom pricing; typically quoted per\u2011server or per\u2011MIPS with a minimum contract; no public per\u2011API\u2011call rates.",
+            "differentiation": "Myrtle focuses on raw hardware acceleration to shrink inference time, but does not implement automatic chain\u2011of\u2011thought termination or mathematically\u2011vetted predictions; SageFlow adds a reasoning layer that stops when a provably correct answer is reached, guaranteeing <100\u202fms latency even on standard CPUs/GPUs."
+          },
+          {
+            "name": "Xelera (AI Inference Acceleration for Trading \u2013 Napatech)",
+            "url": "https://www.napatech.com/solutions/partners/ai-inference-acceleration-for-trading-with-xelera/",
+            "description": "AI inference platform built on Napatech SmartNICs that delivers ultra\u2011low (\u00b5s\u2011level) latency for high\u2011frequency trading models.",
+            "pricing": "Hardware\u2011plus\u2011software bundle; pricing starts around $30\u202fk per SmartNIC with annual support fees; cloud\u2011based API pricing not publicly disclosed.",
+            "differentiation": "Xelera achieves low latency via network\u2011off\u2011load hardware, but it does not provide a chain\u2011of\u2011thought reasoning framework or automatic mathematical vetting; SageFlow offers a software\u2011only API that can run on any infrastructure while intelligently truncating reasoning to stay under 100\u202fms."
+          },
+          {
+            "name": "Ntropy AI",
+            "url": "https://www.ntropy.com/blog/ntropy-ai",
+            "description": "LLM orchestration stack for finance that promises high\u2011throughput, low\u2011cost execution of complex financial tasks across multiple models.",
+            "pricing": "Subscription tiers starting at $0.02 per 1\u202fk token for the hosted service; enterprise plans with volume discounts.",
+            "differentiation": "Ntropy optimizes cost and throughput but does not guarantee sub\u2011100\u202fms response times nor enforce mathematically validated outputs; SageFlow\u2019s core innovation is a SAGE\u2011driven early\u2011termination algorithm that ensures deterministic latency and vetted predictions for risk\u2011critical decisions."
+          }
+        ],
+        "marketVerdict": "The ultra\u2011low\u2011latency AI inference niche for finance has a few specialized players (Myrtle, Xelera, Ntropy), but none combine rapid chain\u2011of\u2011thought termination with formal mathematical validation, leaving a clear blue\u2011ocean opportunity for SageFlow."
+      }
+    },
+    "meta": {
+      "title": "Does Your Reasoning Model Implicitly Know When to Stop Thinking?",
+      "authors": [
+        "Zixuan Huang",
+        "Xin Xia",
+        "Yuxi Ren",
+        "Jianbin Zheng",
+        "Xuanda Wang",
+        "Zhixia Zhang",
+        "Hongyan Xie",
+        "Songshi Liang",
+        "Zehao Chen",
+        "Xuefeng Xiao",
+        "Fuzhen Zhuang",
+        "Jianxin Li",
+        "Yikun Ban",
+        "Deqing Wang"
+      ],
+      "published": "2026-02-09T07:38:22Z",
+      "abstract": "Recent advancements in large reasoning models (LRMs) have greatly improved their capabilities on complex reasoning tasks through Long Chains of Thought (CoTs). However, this approach often results in substantial redundancy, impairing computational efficiency and causing significant delays in real-time applications. Recent studies show that longer reasoning chains are frequently uncorrelated with correctness and can even be detrimental to accuracy. In a further in-depth analysis of this phenomenon, we surprisingly uncover and empirically verify that LRMs implicitly know the appropriate time to stop thinking, while this capability is obscured by current sampling paradigms. Motivated by this, we introduce SAGE (Self-Aware Guided Efficient Reasoning), a novel sampling paradigm that unleashes this efficient reasoning potential. Furthermore, integrating SAGE as mixed sampling into group-based reinforcement learning (SAGE-RL) enables SAGE-RL to effectively incorporate SAGE-discovered efficient reasoning patterns into standard pass@1 inference, markedly enhancing both the reasoning accuracy and efficiency of LRMs across multiple challenging mathematical benchmarks."
+    }
+  },
+  "saas_20260228035401": {
+    "timestamp": "2026-02-28T03:54:08.555722",
+    "productName": "a platform that converts arxiv papers in...",
+    "data": {
+      "name": "parallel_extract",
+      "arguments": {
+        "urls": "[\"https://arxiv.org/abs/2201.02453\", \"https://arxiv.org/abs/2206.05237\", \"https://arxiv.org/abs/2212.06234\"]",
+        "excerpts": true,
+        "max_chars_per_excerpt": 1000,
+        "full_content": true,
+        "max_chars_for_full_content": 0
+      }
+    },
+    "mode": "saas",
+    "meta": {
+      "title": "SaaS: a platform that conv"
+    }
   }
 }
