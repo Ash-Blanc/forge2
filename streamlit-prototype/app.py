@@ -99,18 +99,16 @@ def fetch_arxiv_meta(arxiv_id: str) -> dict:
         root = ET.fromstring(xml_data)
         ns = {"default": "http://www.w3.org/2005/Atom"}
         entry = root.find("default:entry", ns)
-        if not entry:
+        if entry is None:
             return {}
         return {
-            "title": entry.find("default:title", ns).text.strip().replace("\n", " "),
+            "title": entry.find("default:title", ns).text.strip().replace("\n", " ") if entry.find("default:title", ns) is not None else "Unknown",
             "authors": [
                 a.find("default:name", ns).text
-                for a in entry.findall("default:author", ns)
+                for a in entry.findall("default:author", ns) if a.find("default:name", ns) is not None
             ],
-            "published": entry.find("default:published", ns).text,
-            "abstract": entry.find("default:summary", ns)
-            .text.strip()
-            .replace("\n", " "),
+            "published": entry.find("default:published", ns).text if entry.find("default:published", ns) is not None else "Unknown",
+            "abstract": entry.find("default:summary", ns).text.strip().replace("\n", " ") if entry.find("default:summary", ns) is not None else "",
         }
     except Exception as e:
         st.error(f"Failed to fetch from arXiv: {e}")

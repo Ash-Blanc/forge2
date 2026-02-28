@@ -84,7 +84,7 @@ A user has proposed a new technical startup idea. Your job is to search the live
 
 Instructions:
 1. Search the web using the provided tools to find companies solving the same pain point or building the same core feature.
-2. IMPORTANT: When using tools like parallel_search, the parameter `search_queries` MUST be a valid JSON list of strings (e.g. `["query 1", "query 2"]`).
+2. IMPORTANT: When using tools like `parallel_search`, the parameter `search_queries` MUST be a valid JSON array of strings, NOT a stringified list. For example, pass `["query 1", "query 2"]`, not `'["query 1", "query 2"]'`.
 3. Select the top 2 to 3 most relevant competitors.
 4. If no direct competitors exist, find the closest platform or substitute they are using today.
 
@@ -173,17 +173,11 @@ def get_model(model_id_or_obj):
         from agno.models.anthropic import Claude
         return Claude(id=actual_id)
     elif provider == "amazon":
-        import os
-        import boto3
         from agno.models.aws.bedrock import AwsBedrock
-        boto_session = boto3.Session(region_name=os.environ.get("AWS_REGION", "us-east-1"))
-        return AwsBedrock(id=actual_id, session=boto_session)
+        return AwsBedrock(id=actual_id)
     else:
-        import os
-        import boto3
         from agno.models.aws.bedrock import AwsBedrock
-        boto_session = boto3.Session(region_name=os.environ.get("AWS_REGION", "us-east-1"))
-        return AwsBedrock(id="amazon.nova-lite-v1:0", session=boto_session)
+        return AwsBedrock(id=actual_id)
 
 def run_analysis_agent(prompt: str, model: str, pdf_path: str = None) -> tuple[str, dict | None]:
     """Run the main analysis agent with optional PDF for multimodal context.

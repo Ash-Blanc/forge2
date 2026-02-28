@@ -182,7 +182,7 @@ def build_prompt(meta: dict) -> str:
 
 Title: {meta.get("title", "")}
 Authors: {", ".join(meta.get("authors", []))}
-Abstract: {meta.get("abstract", "")[:5000]}
+Abstract: {meta.get("abstract", "")[:2000]}
 
 Return ONLY valid JSON."""
 
