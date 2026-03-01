@@ -11,64 +11,63 @@ FORGE is an AI-powered platform that distills complex academic papers (via arXiv
 
 ## Build Commands
 
-### Frontend (Next.js)
+### Frontend (Next.js with Bun)
 ```bash
 cd full-stack-web
 
 # Install dependencies
-npm install
+bun install
 
 # Development server (with Turbopack)
-npm run dev
+bun run dev
 
 # Build for production
-npm run build
+bun run build
 
 # Start production server
-npm run start
+bun run start
 
 # Lint code (ESLint)
-npm run lint
+bun run lint
 
 # Seed database
-npm run seed
+bun run seed
 ```
 
-### Python Agent Service
+### Python Agent Service (with uv)
 ```bash
 cd full-stack-web/agents
 
-# Install dependencies
-pip install -r requirements.txt
+# Setup environment and install dependencies
+uv venv
+source .venv/bin/activate
+uv add -r requirements.txt
 
 # Run the agent server
-uvicorn server:app --port 8321 --reload
-
-# Or from root with npm
-npm run agents  # if configured
+uv run uvicorn server:app --port 8321 --reload
 ```
 
 ### Running a Single Test
 This project does **not** currently have a test framework configured. Tests should be added using:
-- **Frontend**: Vitest or Jest with React Testing Library
-- **Python**: pytest
+- **Frontend**: Vitest or Jest with React Testing Library (via Bun)
+- **Python**: pytest (via uv)
 
 To add tests:
 ```bash
 # Frontend - add Vitest
-npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom
+bun add -d vitest @testing-library/react @testing-library/jest-dom jsdom
 
 # Python - ensure pytest
-pip install pytest
+uv add --dev pytest
 ```
 
 Run a single test when configured:
 ```bash
 # Vitest
-npm test -- --run --reporter=verbose path/to/testfile.test.ts
+bun test path/to/testfile.test.ts
 
 # pytest
-pytest path/to/test_file.py -v
+uv run pytest path/to/test_file.py -v
 ```
 
 ---

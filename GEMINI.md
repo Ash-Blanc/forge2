@@ -27,33 +27,35 @@ This file serves as the primary instructional context for Gemini CLI when workin
 ## Building and Running
 
 ### Prerequisites
-- Node.js 18+ & npm
-- Python 3.10+
-- Supabase account (PostgreSQL + PgVector)
+- **Bun**: Modern JavaScript runtime and package manager.
+- **uv**: Extremely fast Python package installer and resolver.
+- Node.js 18+ (managed by Bun) & Python 3.10+ (managed by uv).
+- Supabase account (PostgreSQL + PgVector).
 - API Keys: `ANTHROPIC_API_KEY`, `AWS_REGION`, etc.
 
 ### Database Setup
 - **Supabase**: PostgreSQL with `pgvector` extension.
 - **Schema**: `full-stack-web/supabase/schema.sql` (apply via Supabase SQL Editor).
-- **Seed**: `full-stack-web/supabase/seed.sql` or `npm run seed` for sample data.
+- **Seed**: `full-stack-web/supabase/seed.sql` or `bun run seed` for sample data.
 
 ### Commands
 
-#### Root
-- The project is split into `full-stack-web` and `streamlit-prototype`. Most work happens in `full-stack-web`.
-
-#### Frontend (`full-stack-web/`)
-- `npm install`: Install dependencies.
-- `npm run dev`: Start Next.js development server (uses Turbopack).
-- `npm run build`: Build for production.
-- `npm run lint`: Run ESLint.
-- `npm run seed`: Seed the database (via internal API call to `http://localhost:3000/api/seed`).
+#### Web Application (`full-stack-web/`)
+- `bun install`: Install dependencies (replaces `npm install`).
+- `bun run dev`: Start Next.js development server with Turbopack.
+- `bun run build`: Build for production.
+- `bun run lint`: Run ESLint.
+- `bun run seed`: Seed the database.
 
 #### Python Agents (`full-stack-web/agents/`)
-- `pip install -r requirements.txt`: Install Python dependencies.
-- `uvicorn server:app --port 8321 --reload`: Start the agent server.
-- **Independent Tests**: `test_bedrock.py`, `test_openai.py`, `test_cerebras.py` are available for provider-specific testing.
+- `uv venv && source .venv/bin/activate`: Setup virtual environment.
+- `uv add -r requirements.txt`: Install dependencies and manage project.
+- `uv run uvicorn server:app --port 8321 --reload`: Start the agent server.
+- **Independent Tests**: `uv run test_bedrock.py`, etc.
 - **Note**: The frontend API routes expect this server to be running on port `8321`.
+
+#### Streamlit Prototype (`streamlit-prototype/`)
+- `uv run streamlit run app.py`: Start the Streamlit prototype (syncs with `uv.lock`).
 
 ### Environment Variables
 Create `full-stack-web/.env.local`:

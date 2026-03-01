@@ -19,8 +19,8 @@ An AI-powered platform that distills complex academic papers (arXiv) into action
 
 ### Prerequisites
 
-- Node.js 18+ & npm
-- Python 3.10+
+- [Bun](https://bun.sh)
+- [uv](https://docs.astral.sh/uv/)
 - Supabase account
 - Anthropic API key
 
@@ -36,13 +36,15 @@ cd full-stack-web
 cp .env.local.example .env.local
 # Edit .env.local with your keys
 
-npm install
-npm run dev
+bun install
+bun run dev
 
-# 3. (Optional) Set up Python agent service
+# 3. Set up Python agent service
 cd agents
-pip install -r requirements.txt
-uvicorn server:app --port 8321 --reload
+uv venv
+source .venv/bin/activate
+uv add -r requirements.txt
+uv run uvicorn server:app --port 8321 --reload
 ```
 
 Visit **http://localhost:3000**
@@ -59,11 +61,10 @@ forge/
 │   ├── lib/                  # Utilities (Supabase, types, API clients)
 │   └── agents/               # Python FastAPI agent service
 │
-├── streamlit-prototype/      # Python prototype for rapid iteration
+├── streamlit-prototype/      # Python prototype for rapid iteration (use uv)
 │
 ├── docs/                     # Documentation and historical notes
 │   ├── AGENTS.md             # Developer guide
-│   ├── issues/               # Technical issue notes
 │   └── archive/              # Original project vision
 │
 ├── tasks.md                  # Task tracker
@@ -76,6 +77,7 @@ forge/
 
 | Layer | Technology |
 |-------|------------|
+| Package Manager | Bun (JS), uv (Python) |
 | Frontend | Next.js 16, React 19, Tailwind CSS v4 |
 | Database | Supabase (PostgreSQL) |
 | AI | Anthropic Claude (via Agno framework) |
@@ -88,16 +90,20 @@ forge/
 
 ```bash
 # Frontend development
-npm run dev          # Start dev server (localhost:3000)
-npm run build        # Production build
-npm run lint         # Lint code
+bun run dev          # Start dev server (localhost:3000)
+bun run build        # Production build
+bun run lint         # Lint code
 
 # Python agent
 cd agents
-uvicorn server:app --port 8321 --reload
+uv run uvicorn server:app --port 8321 --reload
+
+# Streamlit prototype
+cd streamlit-prototype
+uv run streamlit run app.py
 
 # Database
-npm run seed         # Seed database with sample data
+bun run seed         # Seed database with sample data
 ```
 
 ---
