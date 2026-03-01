@@ -195,7 +195,7 @@ try {
 ├── streamlit-prototype/      # Python Streamlit prototype
 │   ├── app.py
 │   └── pyproject.toml
-└── project.md                # Original project vision
+└── docs/archive/project_vision.md # Original project vision
 ```
 
 ---

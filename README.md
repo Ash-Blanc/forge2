@@ -59,9 +59,13 @@ forge/
 │   ├── lib/                  # Utilities (Supabase, types, API clients)
 │   └── agents/               # Python FastAPI agent service
 │
-├── streamlit-prototype/      # Quick Python prototype (deprecated)
+├── streamlit-prototype/      # Python prototype for rapid iteration
 │
-├── AGENTS.md                 # Developer guide
+├── docs/                     # Documentation and historical notes
+│   ├── AGENTS.md             # Developer guide
+│   ├── issues/               # Technical issue notes
+│   └── archive/              # Original project vision
+│
 ├── tasks.md                  # Task tracker
 └── CONTRIBUTING.md            # Contributor guidelines
 ```
@@ -112,6 +116,6 @@ ANTHROPIC_API_KEY=your_anthropic_key
 
 ## Getting Help
 
-- Check [AGENTS.md](./AGENTS.md) for detailed developer docs
+- Check [docs/AGENTS.md](./docs/AGENTS.md) for detailed developer docs
 - See [tasks.md](./tasks.md) for what needs doing
 - Read [CONTRIBUTING.md](./CONTRIBUTING.md) to contribute

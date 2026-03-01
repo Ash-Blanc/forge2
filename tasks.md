@@ -51,6 +51,7 @@ Development tasks for FORGE — an AI platform that distills arXiv papers into a
 - [ ] `GET /papers/:id` - Get specific analysis
 - [ ] Authentication for protected endpoints
 - [ ] Rate limiting (Amazon Bedrock quotas)
+- [ ] **Migration**: Move to OpenAI-compatible Bedrock API once Nova models are supported (ref: docs/issues/nova_openai_compatibility_issue.md)
 
 ### Database (`Supabase`)
 
@@ -62,10 +63,8 @@ Development tasks for FORGE — an AI platform that distills arXiv papers into a
 
 ### Streamlit Prototype (`streamlit-prototype/`)
 
-> ⚠️ **Deprecated** - Use full-stack-web for new development
-
-- [ ] Mark as deprecated in docs
-- [ ] Archive or remove
+- [ ] Maintain feature parity with agent backend
+- [ ] Test new prompt iterations here first
 
 ---
 
