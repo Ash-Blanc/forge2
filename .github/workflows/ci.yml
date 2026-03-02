@@ -51,7 +51,7 @@ jobs:
       run: bun install
 
     - name: Lint Next.js
-      run: bun run lint
+      run: bunx next lint
 
     - name: Build Next.js
       run: bun run build
