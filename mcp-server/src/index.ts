@@ -233,6 +233,148 @@ server.tool(
   }
 );
 
+// Tool: save_idea
+server.tool(
+  "save_idea",
+  "Save an idea, thought, or note into the workspace (similar to Obsidian). Saves as a Markdown file with optional tags and references.",
+  {
+    title: z.string().describe("The title of the idea (will be used as the filename)"),
+    content: z.string().describe("The main content of the idea"),
+    tags: z.array(z.string()).optional().describe("Optional list of tags or keywords for this idea"),
+    links: z.array(z.string()).optional().describe("Optional list of other idea titles this idea connects to"),
+  },
+  async ({ title, content, tags, links }) => {
+    try {
+      const ideasDir = path.join(process.cwd(), "ideas");
+      
+      // Ensure the ideas directory exists
+      try {
+        await fs.access(ideasDir);
+      } catch {
+        await fs.mkdir(ideasDir, { recursive: true });
+      }
+
+      // Sanitize title for filename
+      const safeTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+      const filePath = path.join(ideasDir, `${safeTitle}.md`);
+      
+      // Build frontmatter
+      const frontmatter = [
+        "---",
+        `title: "${title}"`,
+        `date: "${new Date().toISOString()}"`,
+        tags && tags.length > 0 ? `tags: [${tags.map(t => `"${t}"`).join(", ")}]` : "",
+        links && links.length > 0 ? `links: [${links.map(l => `"${l}"`).join(", ")}]` : "",
+        "---",
+        ""
+      ].filter(line => line !== "").join("\n");
+
+      const fileContent = `${frontmatter}\n${content}`;
+
+      await fs.writeFile(filePath, fileContent, "utf-8");
+
+      return {
+        content: [{ type: "text", text: `Successfully saved idea '${title}' to ${filePath}` }]
+      };
+    } catch (e: any) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: `Error saving idea: ${e.message}` }]
+      };
+    }
+  }
+);
+
+// Tool: get_ideas_graph
+server.tool(
+  "get_ideas_graph",
+  "Analyzes the saved ideas folder and returns a graph representation (nodes and edges) of how ideas are interconnected based on their links and tags.",
+  {},
+  async () => {
+    try {
+      const ideasDir = path.join(process.cwd(), "ideas");
+      
+      try {
+        await fs.access(ideasDir);
+      } catch {
+         return {
+          content: [{ type: "text", text: `No ideas directory found. Start saving ideas first.` }]
+        };
+      }
+
+      const files = await fs.readdir(ideasDir);
+      const mdFiles = files.filter(f => f.endsWith('.md'));
+      
+      if (mdFiles.length === 0) {
+        return {
+          content: [{ type: "text", text: `The ideas directory is empty.` }]
+        };
+      }
+
+      const nodes: any[] = [];
+      const edges: any[] = [];
+
+      for (const file of mdFiles) {
+        const content = await fs.readFile(path.join(ideasDir, file), "utf-8");
+        const id = file.replace('.md', '');
+        
+        let title = id;
+        let links: string[] = [];
+        let tags: string[] = [];
+        
+        // Simple frontmatter parser
+        const frontmatterMatch = content.match(/^---\n([\s\S]*?)\n---/);
+        if (frontmatterMatch) {
+          const fm = frontmatterMatch[1];
+          const titleMatch = fm.match(/title:\s*"([^"]+)"/);
+          if (titleMatch) title = titleMatch[1];
+          
+          const linksMatch = fm.match(/links:\s*\[(.*?)\]/);
+          if (linksMatch && linksMatch[1]) {
+            links = linksMatch[1].split(',').map(l => l.replace(/"/g, '').trim()).filter(l => l);
+          }
+          
+          const tagsMatch = fm.match(/tags:\s*\[(.*?)\]/);
+          if (tagsMatch && tagsMatch[1]) {
+            tags = tagsMatch[1].split(',').map(t => t.replace(/"/g, '').trim()).filter(t => t);
+          }
+        }
+
+        nodes.push({ id, title, tags });
+
+        // Create edges based on defined links
+        for (const link of links) {
+           const targetId = link.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+           edges.push({ source: id, target: targetId, type: "explicit_link" });
+        }
+      }
+      
+      // Secondary pass: Create edges based on shared tags
+      for (let i = 0; i < nodes.length; i++) {
+        for (let j = i + 1; j < nodes.length; j++) {
+           const sharedTags = nodes[i].tags.filter((tag: string) => nodes[j].tags.includes(tag));
+           if (sharedTags.length > 0) {
+             edges.push({ source: nodes[i].id, target: nodes[j].id, type: "shared_tag", weight: sharedTags.length, tags: sharedTags });
+           }
+        }
+      }
+
+      return {
+        content: [{ type: "text", text: JSON.stringify({
+          summary: `Found ${nodes.length} ideas with ${edges.length} connections.`,
+          nodes,
+          edges
+        }, null, 2) }]
+      };
+    } catch (e: any) {
+      return {
+        isError: true,
+        content: [{ type: "text", text: `Error generating ideas graph: ${e.message}` }]
+      };
+    }
+  }
+);
+
 // Start the server
 async function main() {
   const transport = new StdioServerTransport();

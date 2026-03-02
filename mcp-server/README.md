@@ -25,6 +25,8 @@ An MCP server that interacts with Excalidraw files, the local codebase, GitHub A
 - `github_dispatch_action`: Triggers a GitHub Actions workflow manually.
 - `github_create_issue`: Creates a GitHub issue in a specified repository.
 - `github_add_comment`: Adds a comment to an existing GitHub issue or pull request.
+- `save_idea`: Saves a thought or note locally as a markdown file, supporting tags and links (similar to Obsidian).
+- `get_ideas_graph`: Returns a graph representation of all saved ideas and their connections based on explicit links and shared tags.
 
 ## Using with Claude Desktop or Cursor
 
