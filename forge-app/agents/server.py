@@ -11,11 +11,13 @@ from workflow import forge_flow_instance
 
 # Load environment variables
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env.local'))
-load_dotenv(os.path.join(os.path.dirname(__file__), '..', '..', 'streamlit-prototype', '.env'))
 
-# CRITICAL: Prevent Boto3 from hanging on IMDS metadata timeouts if these are explicitly empty
-os.environ.pop("AWS_ACCESS_KEY_ID", None)
-os.environ.pop("AWS_SECRET_ACCESS_KEY", None)
+# Prevent malformed empty credential vars from poisoning boto3 resolution,
+# while preserving valid env-based credentials.
+for key in ("AWS_ACCESS_KEY_ID", "AWS_SECRET_ACCESS_KEY", "AWS_SESSION_TOKEN"):
+    value = os.environ.get(key)
+    if value is not None and not value.strip():
+        os.environ.pop(key, None)
 
 # Initialize AgentOS with our agents and workflows
 agent_os = AgentOS(
@@ -37,5 +39,4 @@ app = agent_os.get_app()
 if __name__ == "__main__":
     # Start the AgentOS server on port 8321
     agent_os.serve(app="server:app", port=8321, reload=True)
-
 

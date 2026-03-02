@@ -18,7 +18,7 @@ agents/
 ├── server.py           # Main AgentOS entry point (Port 8321)
 ├── core.py             # Agent definitions (Analyst, Architect, Strategist)
 ├── workflow.py         # Orchestration (ForgeFlow)
-├── models.py           # Model factory (AWS Bedrock, OpenAI, Anthropic, Cerebras)
+├── models.py           # Model factory (AWS Bedrock only)
 ├── prompts/            # Specialized LLM instructions
 │   ├── analyst.py
 │   ├── architect.py
@@ -45,7 +45,7 @@ uv sync
 
 ### 2. Configure Environment
 Ensure `.env.local` exists in `forge-app/` with:
-- `ANTHROPIC_API_KEY`
+- `AWS_BEARER_TOKEN_BEDROCK`
 - `AWS_REGION`
 - `SUPABASE_DB_URL` (for PgVector)
 - `PARALLEL_API_KEY` (optional, for advanced web research)

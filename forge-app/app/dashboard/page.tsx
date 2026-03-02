@@ -9,9 +9,8 @@ import type { ForgeUser } from "@/lib/types";
 type AppMode = "paper" | "saas" | "constellation";
 
 const AVAILABLE_MODELS = [
+    { id: "amazon:amazon.nova-pro-v1:0", name: "Nova Pro", provider: "amazon" },
     { id: "amazon:amazon.nova-lite-v1:0", name: "Nova 2 Lite", provider: "amazon" },
-    { id: "openai:gpt-4o", name: "GPT-4o", provider: "openai" },
-    { id: "anthropic:claude-3-5-sonnet-latest", name: "Claude 3.5", provider: "anthropic" },
 ];
 
 interface Session {
