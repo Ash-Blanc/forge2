@@ -1,19 +1,15 @@
 # FORGE
 
-An AI-powered platform that distills complex academic papers (arXiv) into actionable SaaS opportunities with NOVA scores.
+FORGE turns research papers into execution-ready SaaS blueprints.
 
-## What Does FORGE Do?
+## Current Product Scope
 
-1. **Submit an arXiv paper** - Users paste a paper ID (e.g., `2310.12345`)
-2. **AI Analysis** - Claude analyzes the paper to extract:
-   - Target customers
-   - Total Addressable Market (TAM)
-   - MVP timeline estimate
-   - Competitive moats
-   - NOVA composite score
-3. **Browse & Claim** - Users browse analyzed ideas, claim them, and track building progress from "Open" → "Building" → "Launched"
+1. **Ingest input**: arXiv ID/URL or product idea
+2. **Run analysis**: Agno-backed FastAPI agents process the request
+3. **Review output**: Dashboard shows streamed analysis and saved session history
+4. **Manage sessions**: Create, revisit, and delete analysis sessions
 
----
+Note: legacy collaboration/feed workflows are removed from the current product scope.
 
 ## Quick Start
 
@@ -21,107 +17,56 @@ An AI-powered platform that distills complex academic papers (arXiv) into action
 
 - [Bun](https://bun.sh)
 - [uv](https://docs.astral.sh/uv/)
-- Supabase account
-- Anthropic API key
+- AWS Bedrock access
 
 ### Setup
 
 ```bash
-# 1. Clone the repo
-git clone https://github.com/your-org/forge.git
+# 1) Clone
+git clone https://github.com/Ash-Blanc/forge.git
 cd forge
 
-# 2. Set up frontend
-cd full-stack-web
-cp .env.local.example .env.local
-# Edit .env.local with your keys
-
+# 2) Web app
+cd forge-app
 bun install
 bun run dev
 
-# 3. Set up Python agent service
-cd agents
-uv venv
-source .venv/bin/activate
-uv add -r requirements.txt
+# 3) Agent backend (new terminal)
+cd forge-app/agents
+uv sync
 uv run uvicorn server:app --port 8321 --reload
 ```
 
-Visit **http://localhost:3000**
+Web app: `http://localhost:3000`
 
----
+## Structure
 
-## Project Structure
-
-```
+```text
 forge/
-├── full-stack-web/          # Main Next.js application
-│   ├── app/                  # App Router pages
-│   ├── components/           # React components
-│   ├── lib/                  # Utilities (Supabase, types, API clients)
-│   └── agents/               # Python FastAPI agent service
-│
-├── streamlit-prototype/      # Python prototype for rapid iteration (use uv)
-│
-├── docs/                     # Documentation and historical notes
-│   ├── AGENTS.md             # Developer guide
-│   └── archive/              # Original project vision
-│
-├── tasks.md                  # Task tracker
-└── CONTRIBUTING.md            # Contributor guidelines
+├── forge-app/              # Next.js app + API routes + agents backend
+│   ├── app/
+│   ├── components/
+│   ├── lib/
+│   └── agents/
+├── docs/
+├── tasks.md
+└── CONTRIBUTING.md
 ```
-
----
 
 ## Tech Stack
 
-| Layer | Technology |
-|-------|------------|
-| Package Manager | Bun (JS), uv (Python) |
-| Frontend | Next.js 16, React 19, Tailwind CSS v4 |
-| Database | Supabase (PostgreSQL) |
-| AI | Anthropic Claude (via Agno framework) |
-| Agent API | Python FastAPI |
-| Prototyping | Streamlit |
-
----
-
-## Useful Commands
-
-```bash
-# Frontend development
-bun run dev          # Start dev server (localhost:3000)
-bun run build        # Production build
-bun run lint         # Lint code
-
-# Python agent
-cd agents
-uv run uvicorn server:app --port 8321 --reload
-
-# Streamlit prototype
-cd streamlit-prototype
-uv run streamlit run app.py
-
-# Database
-bun run seed         # Seed database with sample data
-```
-
----
+- Frontend: Next.js 16, React 19, Tailwind CSS v4
+- Agents API: FastAPI + Agno
+- Model runtime: AWS Bedrock via OpenAI-compatible endpoint
+- Data: Supabase (for persisted app data)
 
 ## Environment Variables
 
-Create `full-stack-web/.env.local`:
+Set `forge-app/.env.local` at minimum with:
 
 ```env
-NEXT_PUBLIC_SUPABASE_URL=your_supabase_url
-NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY=your_anon_key
-ANTHROPIC_API_KEY=your_anthropic_key
+AWS_BEARER_TOKEN_BEDROCK=...
+AWS_REGION=us-east-1
 ```
 
----
-
-## Getting Help
-
-- Check [docs/AGENTS.md](./docs/AGENTS.md) for detailed developer docs
-- See [tasks.md](./tasks.md) for what needs doing
-- Read [CONTRIBUTING.md](./CONTRIBUTING.md) to contribute
+Add Supabase vars if you are using persistence features.

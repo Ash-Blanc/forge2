@@ -1,108 +1,63 @@
-# 📋 FORGE: Task Tracker
+# FORGE: Task Tracker
 
-Development tasks for FORGE — an AI platform that distills arXiv papers into actionable SaaS opportunities.
-
----
+Development tasks for FORGE, focused on reliable research analysis workflows.
 
 ## Quick Reference
 
 | Command | Description |
 |---------|-------------|
-| `bun run dev` | Frontend (localhost:3000) |
-| `cd agents && uv run uvicorn server:app --port 8321 --reload` | Python Agent API |
-| `bun run lint` | Lint frontend |
-| `bun run build` | Production build |
+| `cd forge-app && bun run dev` | Frontend (localhost:3000) |
+| `cd forge-app/agents && uv run uvicorn server:app --port 8321 --reload` | Agent API |
+| `cd forge-app && bun run lint` | Lint frontend |
+| `cd forge-app && bun run build` | Production build |
 
----
+## In Progress
 
-## 🚧 In Progress
+- [ ] Improve output rendering for large JSON analysis responses
+- [ ] Add stronger backend health/error telemetry in dashboard
+- [ ] Harden agent timeout/retry behavior in API routes
 
-- [ ] Connect Supabase PgVector for persistent long-term memory across analysis sessions
-- [ ] Implement multi-user workspace sharing for generated theses
-- [ ] User onboarding flow refinements
+## To Do
 
----
+### Frontend (`forge-app/app/`)
+- [ ] Session search/filter for long histories
+- [ ] Better structured visualization of agent output by section
+- [ ] Export analysis to markdown/json
 
-## 📋 To Do
+### Backend (`forge-app/agents/`)
+- [ ] Auth integration for protected agent operations
+- [ ] Rate limiting and request budgeting
+- [ ] Better eval harness for regression testing prompts
 
-### Frontend (`full-stack-web/app/`)
+### Data / Infra
+- [ ] RLS policy refinement for shared deployments
+- [ ] Optional persistent session store beyond localStorage
 
-**Features**
-- [ ] User profiles hub
-- [ ] Advanced result filtering (by NOVA score, market size)
-- [ ] Workspace/Project grouping for multiple papers
+## Done
 
-### Backend (`full-stack-web/agents/`)
+- [x] Dashboard wired to Agno backend on `localhost:8321`
+- [x] Session deletion in dashboard sidebar
+- [x] AWS Bedrock OpenAI-compatible model path
+- [x] Light theme normalization across main screens
 
-- [ ] Auth integration for protected agents
-- [ ] Rate limiting (Amazon Bedrock quotas)
-- [ ] Semantic index retrieval for "Similar Ideas" feature
-
-### Database (`Supabase`)
-
-- [ ] Users table
-- [ ] RLS policies refinement
-
----
-
-## ✅ Done
-
-### Full-Stack Migration (Parity with Prototype)
-- [x] **Streamlit Deprecation**: Safely removed `streamlit-prototype/` and consolidated logic.
-- [x] **Constellation Mode**: Added synthesis of 2-10 related papers into a single thesis.
-- [x] **Streaming UI**: Live thought-process display during agent generation.
-- [x] **Robust JSON Parsing**: Implemented multi-strategy parsing with LLM-powered repair.
-- [x] **Agent Prompts**: Migrated all refined prompts and technical scrutiny logic to FastAPI.
-
-### Foundation
-- [x] Next.js 16 setup with Tailwind CSS v4
-- [x] Supabase client configuration
-- [x] arXiv API + Semantic Scholar integration
-- [x] Python FastAPI agent service with Agno framework
-
-### Dashboard & Core Features
-- [x] Paper distillation flow (One paper -> One credible thesis)
-- [x] Multi-path commercialization (Platform vs Feature vs API/Plugin)
-- [x] NOVA Feasibility Scoring logic
-- [x] Competitor Research agent integration
-
----
-
-## Priority Order
+## Priority
 
 ### High
-1. Paper submission flow (arXiv → analyze → display)
-2. Dashboard with paper feed
-3. NOVA score display
+1. Stable paper submission flow (arXiv -> analyze -> render)
+2. Reliable backend streaming + error handling
+3. Session management UX and persistence
 
 ### Medium
-4. Claim & build tracking
-5. User authentication
-6. Build updates/comments
+4. Structured result views and export paths
+5. Authentication and access control
+6. Evaluation and test coverage
 
 ### Low
-7. Social features (follow, share)
-8. Advanced filtering
-9. Export options
-
----
-
-## Testing
-
-Not yet configured. To add:
-
-```bash
-# Frontend
-bun add -d vitest @testing-library/react
-
-# Python
-uv add pytest
-```
-
----
+7. Advanced filtering and search
+8. Sharing/collaboration affordances
+9. Performance tuning for large responses
 
 ## Notes
 
-- Run both frontend (`bun run dev`) and agent (`uv run uvicorn server:app --port 8321`)
-- Use `bun run lint` and `bun run build` before committing
-- Check `.env.local` for required environment variables
+- Legacy collaboration/feed workflows are intentionally removed from current scope.
+- Run both frontend and agent services during development.
