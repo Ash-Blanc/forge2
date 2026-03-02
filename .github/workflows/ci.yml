@@ -1,0 +1,57 @@
+name: CI Pipeline
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+
+jobs:
+  build-mcp-server:
+    name: Build MCP Server
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./mcp-server
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Use Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: '20.x'
+        cache: 'npm'
+        cache-dependency-path: ./mcp-server/package-lock.json
+
+    - name: Install Dependencies
+      run: npm ci
+
+    - name: Compile TypeScript
+      run: npm run build
+
+  build-forge-app:
+    name: Build Forge App
+    runs-on: ubuntu-latest
+    
+    defaults:
+      run:
+        working-directory: ./forge-app
+
+    steps:
+    - uses: actions/checkout@v4
+    
+    - name: Setup Bun
+      uses: oven-sh/setup-bun@v1
+      with:
+        bun-version: latest
+
+    - name: Install Dependencies
+      run: bun install
+
+    - name: Lint Next.js
+      run: bun run lint
+
+    - name: Build Next.js
+      run: bun run build
