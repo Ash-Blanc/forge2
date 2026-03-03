@@ -6,13 +6,20 @@ import dynamic from "next/dynamic";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { Avatar, Spinner, Tag, SectionLabel } from "@/components/ui";
 
-const PaperCanvas = dynamic(() => import("@/components/PaperCanvas").then((m) => m.PaperCanvas), { ssr: false });
+const PaperCanvas = dynamic(
+    () => import("@/components/PaperCanvas").then((m) => m.PaperCanvas),
+    { ssr: false },
+);
 
 type AppMode = "paper" | "saas" | "constellation";
 
 const AVAILABLE_MODELS = [
     { id: "amazon:amazon.nova-pro-v1:0", name: "Nova Pro", provider: "amazon" },
-    { id: "amazon:amazon.nova-lite-v1:0", name: "Nova 2 Lite", provider: "amazon" },
+    {
+        id: "amazon:amazon.nova-lite-v1:0",
+        name: "Nova 2 Lite",
+        provider: "amazon",
+    },
 ];
 
 interface Session {
@@ -57,7 +64,9 @@ interface SessionApiRecord {
 const extractArxivId = (input: string): string | null => {
     const trimmed = input.trim();
     if (/^\d{4}\.\d{4,5}(v\d+)?$/.test(trimmed)) return trimmed;
-    const match = trimmed.match(/arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5}(?:v\d+)?)/);
+    const match = trimmed.match(
+        /arxiv\.org\/(?:abs|pdf)\/(\d{4}\.\d{4,5}(?:v\d+)?)/,
+    );
     if (match) return match[1];
     const simpleMatch = trimmed.match(/(\d{4}\.\d{4,5}(?:v\d+)?)/);
     if (simpleMatch) return simpleMatch[1];
@@ -72,6 +81,24 @@ const safeJsonParse = (raw: string): unknown => {
     }
 };
 
+const parseMaybeJsonString = (value: string): unknown => {
+    const trimmed = value.trim();
+    if (!trimmed) return value;
+
+    const fencedMatch = trimmed.match(/^```(?:json)?\s*([\s\S]*?)\s*```$/i);
+    const candidate = fencedMatch ? fencedMatch[1].trim() : trimmed;
+
+    if (!(candidate.startsWith("{") || candidate.startsWith("["))) {
+        return value;
+    }
+
+    try {
+        return JSON.parse(candidate);
+    } catch {
+        return value;
+    }
+};
+
 const trimTitle = (value: string): string => {
     if (value.length <= 68) return value;
     return `${value.slice(0, 68)}...`;
@@ -79,12 +106,12 @@ const trimTitle = (value: string): string => {
 
 const generateSmartTitle = (mode: AppMode, input: string): string => {
     const cleaned = input.trim();
-    
+
     if (mode === "paper") {
         // For papers, use the input as-is (will be replaced with actual title from arXiv)
         return `Research: ${cleaned}`;
     }
-    
+
     if (mode === "saas") {
         // Extract key product concept
         const words = cleaned.split(/\s+/);
@@ -95,7 +122,7 @@ const generateSmartTitle = (mode: AppMode, input: string): string => {
         const keyPhrase = words.slice(0, 6).join(" ");
         return `${keyPhrase}...`;
     }
-    
+
     if (mode === "constellation") {
         // Extract market/domain focus
         const words = cleaned.split(/\s+/);
@@ -106,7 +133,7 @@ const generateSmartTitle = (mode: AppMode, input: string): string => {
         const keyPhrase = words.slice(0, 5).join(" ");
         return `${keyPhrase}...`;
     }
-    
+
     return cleaned;
 };
 
@@ -130,7 +157,8 @@ const toLabel = (key: string): string =>
 const toReadableText = (value: unknown, depth = 0): string => {
     if (value == null) return "Not provided";
     if (typeof value === "string") return value.trim() || "Not provided";
-    if (typeof value === "number" || typeof value === "boolean") return String(value);
+    if (typeof value === "number" || typeof value === "boolean")
+        return String(value);
 
     if (Array.isArray(value)) {
         if (!value.length) return "Not provided";
@@ -143,9 +171,17 @@ const toReadableText = (value: unknown, depth = 0): string => {
 
     if (typeof value === "object") {
         const obj = value as Record<string, unknown>;
-        const preferredKeys = ["summary", "oneLiner", "coreBreakthrough", "recommendation", "thesis", "output"];
+        const preferredKeys = [
+            "summary",
+            "oneLiner",
+            "coreBreakthrough",
+            "recommendation",
+            "thesis",
+            "output",
+        ];
         for (const key of preferredKeys) {
-            if (typeof obj[key] === "string" && obj[key]) return String(obj[key]);
+            if (typeof obj[key] === "string" && obj[key])
+                return String(obj[key]);
         }
 
         if (depth > 1) return "Structured output available";
@@ -160,17 +196,31 @@ const toReadableText = (value: unknown, depth = 0): string => {
     return "Not provided";
 };
 
-const getReadableSections = (output: unknown): Array<{ title: string; body: string }> => {
+const getReadableSections = (
+    output: unknown,
+): Array<{ title: string; body: string }> => {
     if (output == null) return [];
-    if (typeof output === "string") return [{ title: "Result", body: output.trim() || "No details returned." }];
-    if (Array.isArray(output)) return [{ title: "Result", body: toReadableText(output) }];
-    if (typeof output !== "object") return [{ title: "Result", body: String(output) }];
+    if (typeof output === "string") {
+        const parsed = parseMaybeJsonString(output);
+        if (parsed !== output) return getReadableSections(parsed);
+        return [
+            { title: "Result", body: output.trim() || "No details returned." },
+        ];
+    }
+    if (Array.isArray(output))
+        return [{ title: "Result", body: toReadableText(output) }];
+    if (typeof output !== "object")
+        return [{ title: "Result", body: String(output) }];
 
     const entries = Object.entries(output as Record<string, unknown>);
-    if (!entries.length) return [{ title: "Result", body: "No details returned." }];
+    if (!entries.length)
+        return [{ title: "Result", body: "No details returned." }];
 
     return entries
-        .map(([key, value]) => ({ title: toLabel(key), body: toReadableText(value) }))
+        .map(([key, value]) => ({
+            title: toLabel(key),
+            body: toReadableText(value),
+        }))
         .filter((section) => section.body && section.body !== "Not provided");
 };
 
@@ -180,7 +230,9 @@ export default function DashboardPage() {
     const [selectedModel, setSelectedModel] = useState(AVAILABLE_MODELS[0].id);
     const [sessions, setSessions] = useState<Session[]>([]);
     const [sessionsLoaded, setSessionsLoaded] = useState(false);
-    const [currentSessionId, setCurrentSessionId] = useState<string | null>(null);
+    const [currentSessionId, setCurrentSessionId] = useState<string | null>(
+        null,
+    );
     const [input, setInput] = useState("");
     const [analyzing, setAnalyzing] = useState(false);
     const [progress, setProgress] = useState(0);
@@ -206,16 +258,24 @@ export default function DashboardPage() {
             inputText: raw.input_text || undefined,
             arxivId: raw.arxiv_id || undefined,
             meta: raw.meta || undefined,
-            data: output == null ? undefined : { output, outputText: raw.output_text || undefined },
+            data:
+                output == null
+                    ? undefined
+                    : { output, outputText: raw.output_text || undefined },
             error: raw.error || undefined,
         };
     };
 
-    const parseApiError = async (res: Response, fallback: string): Promise<string> => {
+    const parseApiError = async (
+        res: Response,
+        fallback: string,
+    ): Promise<string> => {
         try {
             const payload = await res.json();
-            if (typeof payload?.error === "string" && payload.error) return payload.error;
-            if (typeof payload?.message === "string" && payload.message) return payload.message;
+            if (typeof payload?.error === "string" && payload.error)
+                return payload.error;
+            if (typeof payload?.message === "string" && payload.message)
+                return payload.message;
         } catch {
             // no-op
         }
@@ -249,7 +309,9 @@ export default function DashboardPage() {
     const fetchSessions = async () => {
         const res = await fetch("/api/sessions", { cache: "no-store" });
         if (!res.ok) {
-            throw new Error(await parseApiError(res, "Failed to load sessions."));
+            throw new Error(
+                await parseApiError(res, "Failed to load sessions."),
+            );
         }
 
         const payload = (await res.json()) as SessionApiRecord[];
@@ -271,7 +333,11 @@ export default function DashboardPage() {
                 if (!cancelled) await fetchSessions();
             } catch (e: unknown) {
                 if (!cancelled) {
-                    setError(e instanceof Error ? e.message : "Failed to load sessions.");
+                    setError(
+                        e instanceof Error
+                            ? e.message
+                            : "Failed to load sessions.",
+                    );
                 }
             } finally {
                 if (!cancelled) {
@@ -287,8 +353,13 @@ export default function DashboardPage() {
 
     const upsertSession = (session: Session) => {
         setSessions((prev) => {
-            const next = [session, ...prev.filter((s) => s.id !== session.id)].sort(
-                (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
+            const next = [
+                session,
+                ...prev.filter((s) => s.id !== session.id),
+            ].sort(
+                (a, b) =>
+                    new Date(b.timestamp).getTime() -
+                    new Date(a.timestamp).getTime(),
             );
             return next;
         });
@@ -298,7 +369,11 @@ export default function DashboardPage() {
         setSessions((prev) => {
             const existing = prev.find((s) => s.id === sessionId);
             if (!existing) return prev;
-            const updated = { ...existing, ...patch, timestamp: new Date().toISOString() };
+            const updated = {
+                ...existing,
+                ...patch,
+                timestamp: new Date().toISOString(),
+            };
             return [updated, ...prev.filter((s) => s.id !== sessionId)];
         });
     };
@@ -316,7 +391,9 @@ export default function DashboardPage() {
             body: JSON.stringify(payload),
         });
         if (!res.ok) {
-            throw new Error(await parseApiError(res, "Failed to create session."));
+            throw new Error(
+                await parseApiError(res, "Failed to create session."),
+            );
         }
 
         const created = (await res.json()) as SessionApiRecord;
@@ -325,23 +402,32 @@ export default function DashboardPage() {
         return mapped;
     };
 
-    const patchSessionRemote = async (sessionId: string, patch: Partial<Session>) => {
+    const patchSessionRemote = async (
+        sessionId: string,
+        patch: Partial<Session>,
+    ) => {
         const body: Record<string, unknown> = {};
         if (patch.title !== undefined) body.title = patch.title;
         if (patch.inputText !== undefined) body.inputText = patch.inputText;
         if (patch.arxivId !== undefined) body.arxivId = patch.arxivId;
         if (patch.meta !== undefined) body.meta = patch.meta;
         if (patch.data?.output !== undefined) body.output = patch.data.output;
-        if (patch.data?.outputText !== undefined) body.outputText = patch.data.outputText;
+        if (patch.data?.outputText !== undefined)
+            body.outputText = patch.data.outputText;
         if (patch.error !== undefined) body.error = patch.error;
 
-        const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
-            method: "PATCH",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify(body),
-        });
+        const res = await fetch(
+            `/api/sessions/${encodeURIComponent(sessionId)}`,
+            {
+                method: "PATCH",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(body),
+            },
+        );
         if (!res.ok) {
-            throw new Error(await parseApiError(res, "Failed to update session."));
+            throw new Error(
+                await parseApiError(res, "Failed to update session."),
+            );
         }
 
         const updated = (await res.json()) as SessionApiRecord;
@@ -356,12 +442,17 @@ export default function DashboardPage() {
             setCurrentSessionId(updated[0]?.id ?? null);
         }
 
-        const res = await fetch(`/api/sessions/${encodeURIComponent(sessionId)}`, {
-            method: "DELETE",
-        });
+        const res = await fetch(
+            `/api/sessions/${encodeURIComponent(sessionId)}`,
+            {
+                method: "DELETE",
+            },
+        );
         if (!res.ok) {
             setSessions(current);
-            throw new Error(await parseApiError(res, "Failed to delete session."));
+            throw new Error(
+                await parseApiError(res, "Failed to delete session."),
+            );
         }
     };
 
@@ -406,12 +497,17 @@ export default function DashboardPage() {
                     continue;
                 }
 
-                if (payload.type === "delta" && typeof payload.text === "string") {
+                if (
+                    payload.type === "delta" &&
+                    typeof payload.text === "string"
+                ) {
                     setStreamOutput(payload.text);
                 }
 
                 if (payload.type === "error") {
-                    throw new Error(payload.message || "Backend returned an error.");
+                    throw new Error(
+                        payload.message || "Backend returned an error.",
+                    );
                 }
 
                 if (payload.type === "done") {
@@ -423,7 +519,11 @@ export default function DashboardPage() {
         return finalOutput;
     };
 
-    const handleAnalyze = async (manualId?: string, manualMode?: AppMode, manualInput?: string) => {
+    const handleAnalyze = async (
+        manualId?: string,
+        manualMode?: AppMode,
+        manualInput?: string,
+    ) => {
         const targetMode = manualMode || mode;
         const targetInput = (manualInput || input).trim();
         if (!targetInput && !manualId) return;
@@ -443,14 +543,20 @@ export default function DashboardPage() {
             if (targetMode === "paper") {
                 const arxivId = manualId || extractArxivId(targetInput);
                 if (!arxivId) {
-                    throw new Error("Paper mode requires a valid arXiv ID or URL.");
+                    throw new Error(
+                        "Paper mode requires a valid arXiv ID or URL.",
+                    );
                 }
 
                 setStatusText("Fetching arXiv metadata");
-                const metaRes = await fetch(`/api/arxiv?id=${encodeURIComponent(arxivId)}`);
+                const metaRes = await fetch(
+                    `/api/arxiv?id=${encodeURIComponent(arxivId)}`,
+                );
                 if (!metaRes.ok) {
                     const metaErr = await metaRes.json().catch(() => ({}));
-                    throw new Error(metaErr?.error || "Failed to fetch arXiv metadata.");
+                    throw new Error(
+                        metaErr?.error || "Failed to fetch arXiv metadata.",
+                    );
                 }
 
                 const meta = (await metaRes.json()) as ArxivMeta;
@@ -469,21 +575,33 @@ export default function DashboardPage() {
                 const analyzeRes = await fetch("/api/analyze", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ ...meta, arxivId, model: selectedModel }),
+                    body: JSON.stringify({
+                        ...meta,
+                        arxivId,
+                        model: selectedModel,
+                    }),
                 });
 
                 const final = await readStreamingResponse(analyzeRes);
                 patchSession(session.id, {
                     data: {
-                        output: typeof final === "string" ? safeJsonParse(final) : final,
-                        outputText: typeof final === "string" ? final : undefined,
+                        output:
+                            typeof final === "string"
+                                ? safeJsonParse(final)
+                                : final,
+                        outputText:
+                            typeof final === "string" ? final : undefined,
                     },
                     error: undefined,
                 });
                 await patchSessionRemote(session.id, {
                     data: {
-                        output: typeof final === "string" ? safeJsonParse(final) : final,
-                        outputText: typeof final === "string" ? final : undefined,
+                        output:
+                            typeof final === "string"
+                                ? safeJsonParse(final)
+                                : final,
+                        outputText:
+                            typeof final === "string" ? final : undefined,
                     },
                     error: undefined,
                 });
@@ -492,7 +610,9 @@ export default function DashboardPage() {
             if (targetMode === "saas") {
                 const session = await createSession({
                     mode: targetMode,
-                    title: trimTitle(generateSmartTitle(targetMode, targetInput)),
+                    title: trimTitle(
+                        generateSmartTitle(targetMode, targetInput),
+                    ),
                     inputText: targetInput,
                 });
                 activeSessionId = session.id;
@@ -503,21 +623,32 @@ export default function DashboardPage() {
                 const saasRes = await fetch("/api/analyze-saas", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ description: targetInput, model: selectedModel }),
+                    body: JSON.stringify({
+                        description: targetInput,
+                        model: selectedModel,
+                    }),
                 });
 
                 const final = await readStreamingResponse(saasRes);
                 patchSession(session.id, {
                     data: {
-                        output: typeof final === "string" ? safeJsonParse(final) : final,
-                        outputText: typeof final === "string" ? final : undefined,
+                        output:
+                            typeof final === "string"
+                                ? safeJsonParse(final)
+                                : final,
+                        outputText:
+                            typeof final === "string" ? final : undefined,
                     },
                     error: undefined,
                 });
                 await patchSessionRemote(session.id, {
                     data: {
-                        output: typeof final === "string" ? safeJsonParse(final) : final,
-                        outputText: typeof final === "string" ? final : undefined,
+                        output:
+                            typeof final === "string"
+                                ? safeJsonParse(final)
+                                : final,
+                        outputText:
+                            typeof final === "string" ? final : undefined,
                     },
                     error: undefined,
                 });
@@ -526,7 +657,9 @@ export default function DashboardPage() {
             if (targetMode === "constellation") {
                 const session = await createSession({
                     mode: targetMode,
-                    title: trimTitle(generateSmartTitle(targetMode, targetInput)),
+                    title: trimTitle(
+                        generateSmartTitle(targetMode, targetInput),
+                    ),
                     inputText: targetInput,
                 });
                 activeSessionId = session.id;
@@ -537,21 +670,32 @@ export default function DashboardPage() {
                 const competitorRes = await fetch("/api/analyze-competitors", {
                     method: "POST",
                     headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({ ideaContext: targetInput, model: selectedModel }),
+                    body: JSON.stringify({
+                        ideaContext: targetInput,
+                        model: selectedModel,
+                    }),
                 });
 
                 const final = await readStreamingResponse(competitorRes);
                 patchSession(session.id, {
                     data: {
-                        output: typeof final === "string" ? safeJsonParse(final) : final,
-                        outputText: typeof final === "string" ? final : undefined,
+                        output:
+                            typeof final === "string"
+                                ? safeJsonParse(final)
+                                : final,
+                        outputText:
+                            typeof final === "string" ? final : undefined,
                     },
                     error: undefined,
                 });
                 await patchSessionRemote(session.id, {
                     data: {
-                        output: typeof final === "string" ? safeJsonParse(final) : final,
-                        outputText: typeof final === "string" ? final : undefined,
+                        output:
+                            typeof final === "string"
+                                ? safeJsonParse(final)
+                                : final,
+                        outputText:
+                            typeof final === "string" ? final : undefined,
                     },
                     error: undefined,
                 });
@@ -563,7 +707,9 @@ export default function DashboardPage() {
             setError(message);
             if (activeSessionId) {
                 patchSession(activeSessionId, { error: message });
-                await patchSessionRemote(activeSessionId, { error: message }).catch(() => {
+                await patchSessionRemote(activeSessionId, {
+                    error: message,
+                }).catch(() => {
                     // no-op
                 });
             }
@@ -578,43 +724,67 @@ export default function DashboardPage() {
     return (
         <div className="h-screen flex lp-shell text-[#17130c] overflow-hidden font-sans">
             {/* Sidebar with improved responsive behavior */}
-            <aside className={`
-                border-r border-[#e8dfcf] bg-[#f4ebd9]/90 backdrop-blur flex flex-col 
+            <aside
+                className={`
+                border-r border-[#e8dfcf] bg-[#f4ebd9]/90 backdrop-blur flex flex-col
                 transition-all duration-300 ease-in-out
                 ${sidebarOpen ? "w-72 pointer-events-auto" : "w-0 pointer-events-none"}
                 fixed lg:relative inset-y-0 left-0 z-30
                 ${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
                 overflow-hidden
-            `}>
+            `}
+            >
                 <div className="p-4 border-b border-[#e8dfcf] flex items-center justify-between">
                     <Link href="/" className="flex items-center gap-2 group">
-                        <span className="font-extrabold text-lg tracking-tighter">FORGE</span>
+                        <span className="font-extrabold text-lg tracking-tighter">
+                            FORGE
+                        </span>
                         <span className="text-[#e86f2d] text-xl">⬡</span>
                     </Link>
-                    <button 
-                        onClick={() => setSidebarOpen(false)} 
-                        className="text-[#6b5b3f] hover:text-[#17130c] p-1 transition-colors" 
+                    <button
+                        onClick={() => setSidebarOpen(false)}
+                        className="text-[#6b5b3f] hover:text-[#17130c] p-1 transition-colors"
                         aria-label="Collapse sidebar"
                     >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M11 19l-7-7 7-7m8 14l-7-7 7-7" />
+                        <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M11 19l-7-7 7-7m8 14l-7-7 7-7"
+                            />
                         </svg>
                     </button>
                 </div>
 
                 <div className="p-3">
                     <button
-                        onClick={() => { 
-                            setCurrentSessionId(null); 
-                            setInput(""); 
-                            setStreamOutput(""); 
-                            setError(""); 
+                        onClick={() => {
+                            setCurrentSessionId(null);
+                            setInput("");
+                            setStreamOutput("");
+                            setError("");
                             setSidebarOpen(false); // Auto-close on mobile
                         }}
                         className="lp-btn-secondary w-full flex items-center justify-start gap-3 border-dashed px-3 py-2 text-sm hover:bg-[#fff5e1] transition-colors"
                     >
-                        <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
+                        <svg
+                            className="w-4 h-4"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                strokeLinecap="round"
+                                strokeLinejoin="round"
+                                strokeWidth={2}
+                                d="M12 4v16m8-8H4"
+                            />
                         </svg>
                         New Forge Session
                     </button>
@@ -628,7 +798,9 @@ export default function DashboardPage() {
                         <div className="px-3 py-8 text-center space-y-2">
                             <div className="text-[#9c8e74] text-2xl"></div>
                             <p className="text-[#8a7a5d] text-[0.7rem] font-mono uppercase tracking-widest">
-                                {sessionsLoaded ? "No history recorded" : "Loading sessions"}
+                                {sessionsLoaded
+                                    ? "No history recorded"
+                                    : "Loading sessions"}
                             </p>
                         </div>
                     ) : (
@@ -636,8 +808,8 @@ export default function DashboardPage() {
                             <div
                                 key={s.id}
                                 className={`w-full p-1 rounded-lg transition-all border ${
-                                    currentSessionId === s.id 
-                                        ? "bg-[#fff5e2] border-[#eec681]" 
+                                    currentSessionId === s.id
+                                        ? "bg-[#fff5e2] border-[#eec681]"
                                         : "hover:bg-[#f8efde] border-transparent"
                                 }`}
                             >
@@ -653,25 +825,41 @@ export default function DashboardPage() {
                                         className="flex-1 text-left p-2 rounded-md flex items-center gap-3 min-w-0"
                                     >
                                         <span className="text-[0.8rem] opacity-50 shrink-0">
-                                            {s.mode === "paper" ? "" : s.mode === "constellation" ? "" : ""}
+                                            {s.mode === "paper"
+                                                ? ""
+                                                : s.mode === "constellation"
+                                                  ? ""
+                                                  : ""}
                                         </span>
                                         <div className="flex-1 min-w-0">
-                                            <div className={`text-[0.75rem] font-medium truncate ${
-                                                currentSessionId === s.id ? "text-[#b2541f]" : "text-[#17130c]"
-                                            }`}>
+                                            <div
+                                                className={`text-[0.75rem] font-medium truncate ${
+                                                    currentSessionId === s.id
+                                                        ? "text-[#b2541f]"
+                                                        : "text-[#17130c]"
+                                                }`}
+                                            >
                                                 {s.title}
                                             </div>
                                             <div className="text-[0.6rem] text-[#8a7a5d] font-mono uppercase">
-                                                {new Date(s.timestamp).toLocaleDateString()}
+                                                {new Date(
+                                                    s.timestamp,
+                                                ).toLocaleDateString()}
                                             </div>
                                         </div>
                                     </button>
                                     <button
                                         onClick={(e) => {
                                             e.stopPropagation();
-                                            void deleteSession(s.id).catch((err: unknown) => {
-                                                setError(err instanceof Error ? err.message : "Failed to delete session.");
-                                            });
+                                            void deleteSession(s.id).catch(
+                                                (err: unknown) => {
+                                                    setError(
+                                                        err instanceof Error
+                                                            ? err.message
+                                                            : "Failed to delete session.",
+                                                    );
+                                                },
+                                            );
                                         }}
                                         className="shrink-0 h-8 w-8 rounded-md text-[#8a7a5d] hover:text-[#17130c] hover:bg-[#efe4d0] transition-colors"
                                         aria-label="Delete session"
@@ -688,7 +876,11 @@ export default function DashboardPage() {
                 <div className="p-4 border-t border-[#e8dfcf] bg-[#f0e6d2]">
                     <div className="flex items-center gap-3">
                         <Avatar
-                            name={user?.fullName || user?.primaryEmailAddress?.emailAddress || "User"}
+                            name={
+                                user?.fullName ||
+                                user?.primaryEmailAddress?.emailAddress ||
+                                "User"
+                            }
                             role="researcher"
                             size={28}
                         />
@@ -706,7 +898,7 @@ export default function DashboardPage() {
 
             {/* Overlay for mobile sidebar */}
             {sidebarOpen && (
-                <div 
+                <div
                     className="fixed inset-0 bg-black/20 backdrop-blur-sm z-20 lg:hidden"
                     onClick={() => setSidebarOpen(false)}
                     aria-hidden="true"
@@ -720,25 +912,43 @@ export default function DashboardPage() {
                 <header className="h-14 border-b border-[#e8dfcf] flex items-center justify-between px-4 lg:px-6 bg-[#f7f3ea]/90 backdrop-blur z-10">
                     <div className="flex items-center gap-3 lg:gap-4 min-w-0">
                         {!sidebarOpen && (
-                            <button 
-                                onClick={() => setSidebarOpen(true)} 
-                                className="text-[#6b5b3f] hover:text-[#17130c] p-1 transition-colors" 
+                            <button
+                                onClick={() => setSidebarOpen(true)}
+                                className="text-[#6b5b3f] hover:text-[#17130c] p-1 transition-colors"
                                 aria-label="Expand sidebar"
                             >
-                                <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                                <svg
+                                    className="w-5 h-5"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        strokeLinecap="round"
+                                        strokeLinejoin="round"
+                                        strokeWidth={2}
+                                        d="M4 6h16M4 12h16M4 18h16"
+                                    />
                                 </svg>
                             </button>
                         )}
                         <div className="flex items-center gap-2 min-w-0">
                             <select
                                 value={selectedModel}
-                                onChange={(e) => setSelectedModel(e.target.value)}
+                                onChange={(e) =>
+                                    setSelectedModel(e.target.value)
+                                }
                                 className="bg-transparent text-[0.65rem] lg:text-[0.7rem] font-mono text-[#6b5b3f] hover:text-[#17130c] cursor-pointer border-none outline-none appearance-none uppercase tracking-widest"
                             >
-                                {AVAILABLE_MODELS.map((m) => <option key={m.id} value={m.id}>{m.name}</option>)}
+                                {AVAILABLE_MODELS.map((m) => (
+                                    <option key={m.id} value={m.id}>
+                                        {m.name}
+                                    </option>
+                                ))}
                             </select>
-                            <span className="text-[#8a7a5d] hidden sm:inline">/</span>
+                            <span className="text-[#8a7a5d] hidden sm:inline">
+                                /
+                            </span>
                             <span className="text-[0.6rem] lg:text-[0.65rem] font-mono text-[#8a7a5d] uppercase tracking-widest hidden sm:inline">
                                 {mode} MODE
                             </span>
@@ -748,7 +958,9 @@ export default function DashboardPage() {
                     <div className="flex items-center gap-2">
                         {currentSession ? (
                             <button className="lp-btn-secondary h-8 px-2 lg:px-3 text-[0.6rem] lg:text-[0.65rem] whitespace-nowrap">
-                                <span className="hidden sm:inline">Share Blueprint</span>
+                                <span className="hidden sm:inline">
+                                    Share Blueprint
+                                </span>
                                 <span className="sm:hidden">Share</span>
                             </button>
                         ) : (
@@ -756,7 +968,9 @@ export default function DashboardPage() {
                                 className="lp-btn-secondary h-8 px-2 lg:px-3 text-[0.6rem] lg:text-[0.65rem] whitespace-nowrap"
                                 onClick={() => setCurrentSessionId(null)}
                             >
-                                <span className="hidden sm:inline">New Session</span>
+                                <span className="hidden sm:inline">
+                                    New Session
+                                </span>
                                 <span className="sm:hidden">New</span>
                             </button>
                         )}
@@ -764,19 +978,36 @@ export default function DashboardPage() {
                     </div>
                 </header>
 
-                <div ref={scrollRef} className="flex-1 overflow-y-auto p-4 lg:p-6 relative">
+                <div
+                    ref={scrollRef}
+                    className="flex-1 overflow-y-auto p-4 lg:p-6 relative"
+                >
                     {currentSession ? (
                         <div className="max-w-4xl mx-auto space-y-6 lg:space-y-8 pb-32">
                             <div className="flex flex-col gap-2">
                                 <div className="text-[#b2541f] text-xs lg:text-sm font-mono uppercase tracking-[0.2em] mb-2 animate-in">
                                     Session Active
                                 </div>
-                                <h1 className="text-2xl lg:text-3xl font-extrabold tracking-tighter animate-in" style={{ animationDelay: "0.1s" }}>
+                                <h1
+                                    className="text-2xl lg:text-3xl font-extrabold tracking-tighter animate-in"
+                                    style={{ animationDelay: "0.1s" }}
+                                >
                                     {currentSession.title}
                                 </h1>
-                                <div className="flex flex-wrap gap-2 animate-in" style={{ animationDelay: "0.15s" }}>
-                                    <Tag text={currentSession.mode.toUpperCase()} color="#b2541f" />
-                                    {currentSession.arxivId ? <Tag text={`arXiv:${currentSession.arxivId}`} color="#2f8b6b" /> : null}
+                                <div
+                                    className="flex flex-wrap gap-2 animate-in"
+                                    style={{ animationDelay: "0.15s" }}
+                                >
+                                    <Tag
+                                        text={currentSession.mode.toUpperCase()}
+                                        color="#b2541f"
+                                    />
+                                    {currentSession.arxivId ? (
+                                        <Tag
+                                            text={`arXiv:${currentSession.arxivId}`}
+                                            color="#2f8b6b"
+                                        />
+                                    ) : null}
                                 </div>
                             </div>
 
@@ -785,16 +1016,18 @@ export default function DashboardPage() {
                                     <Spinner size={32} />
                                     <div className="space-y-1">
                                         <p className="text-xs lg:text-sm font-mono text-[#b2541f] animate-pulse uppercase tracking-widest">
-                                            {statusText || "Running Analysis..."}
+                                            {statusText ||
+                                                "Running Analysis..."}
                                         </p>
                                         <p className="text-[0.65rem] lg:text-xs text-[#6b5b3f] font-light">
-                                            Streaming from Agno backend at localhost:8321
+                                            Streaming from Agno backend at
+                                            localhost:8321
                                         </p>
                                     </div>
                                     <div className="w-full max-w-xs h-1 bg-[#e7dac2] rounded-full overflow-hidden mt-4">
-                                        <div 
-                                            className="h-full bg-[#e86f2d] transition-all duration-300" 
-                                            style={{ width: `${progress}%` }} 
+                                        <div
+                                            className="h-full bg-[#e86f2d] transition-all duration-300"
+                                            style={{ width: `${progress}%` }}
                                         />
                                     </div>
                                 </div>
@@ -802,17 +1035,22 @@ export default function DashboardPage() {
                                 <div className="lp-card p-6 lg:p-8 border-dashed flex flex-col items-center justify-center text-center space-y-4">
                                     <div className="text-[#8a7a5d] text-3xl"></div>
                                     <div className="space-y-1">
-                                        <h3 className="text-xs lg:text-sm font-bold uppercase tracking-widest">Awaiting Command</h3>
+                                        <h3 className="text-xs lg:text-sm font-bold uppercase tracking-widest">
+                                            Awaiting Command
+                                        </h3>
                                         <p className="text-[0.65rem] lg:text-xs text-[#8a7a5d]">
-                                            Click Initialize Forge below to run this session.
+                                            Click Initialize Forge below to run
+                                            this session.
                                         </p>
                                     </div>
-                                    <button 
+                                    <button
                                         onClick={() =>
                                             handleAnalyze(
                                                 currentSession.arxivId,
                                                 currentSession.mode,
-                                                currentSession.inputText || input || currentSession.title,
+                                                currentSession.inputText ||
+                                                    input ||
+                                                    currentSession.title,
                                             )
                                         }
                                         className="lp-btn-primary px-4 py-2 text-sm"
@@ -824,10 +1062,14 @@ export default function DashboardPage() {
                                 <div className="space-y-4 animate-in">
                                     <div className="lp-card p-4 lg:p-6">
                                         <div className="flex flex-col sm:flex-row sm:justify-between sm:items-center mb-4 gap-3 sm:gap-0">
-                                            <SectionLabel>Analysis Output</SectionLabel>
+                                            <SectionLabel>
+                                                Analysis Output
+                                            </SectionLabel>
                                             <div className="flex gap-1 bg-[#fff8eb] p-1 rounded-lg border border-[#eadfc9] w-fit">
                                                 <button
-                                                    onClick={() => setViewMode("text")}
+                                                    onClick={() =>
+                                                        setViewMode("text")
+                                                    }
                                                     className={`px-3 py-1.5 text-[0.65rem] lg:text-xs font-medium rounded-md transition-colors ${
                                                         viewMode === "text"
                                                             ? "bg-[#eadfc9] text-[#3f3525] shadow-sm"
@@ -837,23 +1079,54 @@ export default function DashboardPage() {
                                                     Text
                                                 </button>
                                                 <button
-                                                    onClick={() => setViewMode("canvas")}
+                                                    onClick={() =>
+                                                        setViewMode("canvas")
+                                                    }
                                                     className={`px-3 py-1.5 text-[0.65rem] lg:text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${
                                                         viewMode === "canvas"
                                                             ? "bg-[#eadfc9] text-[#3f3525] shadow-sm"
                                                             : "text-[#8a7a5d] hover:bg-[#eadfc9]/50"
                                                     }`}
                                                 >
-                                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><rect width="18" height="18" x="3" y="3" rx="2" ry="2"/><circle cx="8.5" cy="8.5" r="1.5"/><path d="M21 15l-5-5L5 21"/></svg>
+                                                    <svg
+                                                        width="12"
+                                                        height="12"
+                                                        viewBox="0 0 24 24"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        strokeWidth="2"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                    >
+                                                        <rect
+                                                            width="18"
+                                                            height="18"
+                                                            x="3"
+                                                            y="3"
+                                                            rx="2"
+                                                            ry="2"
+                                                        />
+                                                        <circle
+                                                            cx="8.5"
+                                                            cy="8.5"
+                                                            r="1.5"
+                                                        />
+                                                        <path d="M21 15l-5-5L5 21" />
+                                                    </svg>
                                                     Canvas
                                                 </button>
                                             </div>
                                         </div>
-                                        
+
                                         {viewMode === "text" ? (
                                             <div className="space-y-3">
-                                                {getReadableSections(currentSession.data.output).map((section) => (
-                                                    <div key={section.title} className="rounded-lg border border-[#eadfc9] bg-[#fff8eb] p-3">
+                                                {getReadableSections(
+                                                    currentSession.data.output,
+                                                ).map((section) => (
+                                                    <div
+                                                        key={section.title}
+                                                        className="rounded-lg border border-[#eadfc9] bg-[#fff8eb] p-3"
+                                                    >
                                                         <p className="text-[0.62rem] lg:text-[0.68rem] font-mono uppercase tracking-widest text-[#8a7a5d]">
                                                             {section.title}
                                                         </p>
@@ -864,7 +1137,11 @@ export default function DashboardPage() {
                                                 ))}
                                             </div>
                                         ) : (
-                                            <PaperCanvas data={currentSession.data.output} />
+                                            <PaperCanvas
+                                                data={
+                                                    currentSession.data.output
+                                                }
+                                            />
                                         )}
                                     </div>
                                 </div>
@@ -879,7 +1156,7 @@ export default function DashboardPage() {
                                 </div>
                             ) : null}
 
-                            {(error || currentSession.error) ? (
+                            {error || currentSession.error ? (
                                 <div className="rounded-xl border border-[#d9a9a9] bg-[#f7e8e8] text-[#8d2f2f] p-3 lg:p-4 text-xs lg:text-sm">
                                     {error || currentSession.error}
                                 </div>
@@ -887,29 +1164,53 @@ export default function DashboardPage() {
                         </div>
                     ) : (
                         <div className="h-full flex flex-col items-center justify-center text-center px-4 lg:px-6">
-                            <div className="text-[#e86f2d] text-4xl lg:text-5xl mb-6 lg:mb-8 font-mono">⬡</div>
+                            <div className="text-[#e86f2d] text-4xl lg:text-5xl mb-6 lg:mb-8 font-mono">
+                                ⬡
+                            </div>
                             <h2 className="text-2xl lg:text-4xl font-extrabold tracking-tighter mb-3 lg:mb-4 max-w-md">
-                                What should we <span className="text-[#e86f2d] font-mono italic">forge</span> today?
+                                What should we{" "}
+                                <span className="text-[#e86f2d] font-mono italic">
+                                    forge
+                                </span>{" "}
+                                today?
                             </h2>
                             <p className="text-[#5b4e37] text-xs lg:text-sm max-w-sm mb-8 lg:mb-12 font-light">
-                                Ingest an arXiv paper or describe a product and run the Agno backend from this dashboard.
+                                Ingest an arXiv paper or describe a product and
+                                run the Agno backend from this dashboard.
                             </p>
 
                             <div className="grid grid-cols-1 md:grid-cols-3 gap-3 lg:gap-4 w-full max-w-2xl">
                                 {[
-                                    { t: "Extract SaaS Moats", d: "2409.13449", m: "paper" as AppMode },
-                                    { t: "SaaS R&D Boost", d: "A B2B CRM for biotech", m: "saas" as AppMode },
-                                    { t: "Constellation Map", d: "AI copilots for SOC workflows", m: "constellation" as AppMode }
+                                    {
+                                        t: "Extract SaaS Moats",
+                                        d: "2409.13449",
+                                        m: "paper" as AppMode,
+                                    },
+                                    {
+                                        t: "SaaS R&D Boost",
+                                        d: "A B2B CRM for biotech",
+                                        m: "saas" as AppMode,
+                                    },
+                                    {
+                                        t: "Constellation Map",
+                                        d: "AI copilots for SOC workflows",
+                                        m: "constellation" as AppMode,
+                                    },
                                 ].map((ex, i) => (
                                     <button
                                         key={i}
-                                        onClick={() => { setMode(ex.m); setInput(ex.d); }}
+                                        onClick={() => {
+                                            setMode(ex.m);
+                                            setInput(ex.d);
+                                        }}
                                         className="lp-card p-3 lg:p-4 text-left hover:border-[#eec681] transition-all group"
                                     >
                                         <div className="text-[0.65rem] lg:text-xs font-mono text-[#b2541f] uppercase mb-1 tracking-widest">
                                             {ex.m}
                                         </div>
-                                        <div className="text-xs lg:text-xs font-bold mb-1">{ex.t}</div>
+                                        <div className="text-xs lg:text-xs font-bold mb-1">
+                                            {ex.t}
+                                        </div>
                                         <div className="text-[0.6rem] lg:text-[0.65rem] text-[#8a7a5d] font-mono line-clamp-2">
                                             &quot;{ex.d}&quot;
                                         </div>
@@ -924,21 +1225,31 @@ export default function DashboardPage() {
                 <div className="p-4 lg:p-6 bg-gradient-to-t from-[#f3ead8] via-[#f6efe1]/95 to-transparent border-t border-[#e8dfcf] relative z-10">
                     <div className="max-w-4xl mx-auto space-y-3 lg:space-y-4">
                         <div className="flex justify-center gap-1.5 mb-2">
-                            {(["paper", "constellation", "saas"] as AppMode[]).map((m) => (
+                            {(
+                                ["paper", "constellation", "saas"] as AppMode[]
+                            ).map((m) => (
                                 <button
                                     key={m}
                                     onClick={() => setMode(m)}
                                     className={`px-2 lg:px-3 py-1 rounded-full text-[0.55rem] lg:text-[0.6rem] font-mono uppercase tracking-[0.2em] transition-all border ${
-                                        mode === m 
-                                            ? "bg-[#e86f2d] text-[#fff8eb] border-[#e86f2d] font-bold" 
+                                        mode === m
+                                            ? "bg-[#e86f2d] text-[#fff8eb] border-[#e86f2d] font-bold"
                                             : "bg-[#fdf8ed] text-[#6b5b3f] border-[#e5d9c3] hover:text-[#17130c]"
                                     }`}
                                 >
                                     <span className="hidden sm:inline">
-                                        {m === "constellation" ? " Constell" : m === "paper" ? " Ingest" : " SaaS"}
+                                        {m === "constellation"
+                                            ? " Constell"
+                                            : m === "paper"
+                                              ? " Ingest"
+                                              : " SaaS"}
                                     </span>
                                     <span className="sm:hidden">
-                                        {m === "constellation" ? "" : m === "paper" ? "" : ""}
+                                        {m === "constellation"
+                                            ? ""
+                                            : m === "paper"
+                                              ? ""
+                                              : ""}
                                     </span>
                                 </button>
                             ))}
@@ -950,10 +1261,19 @@ export default function DashboardPage() {
                                     <div className="px-3 pt-2">
                                         <span className="inline-flex items-center gap-2 bg-[#fdf0df] border border-[#f0cb94] rounded px-2 py-1 text-[0.6rem] lg:text-[0.65rem] font-mono text-[#b2541f] animate-in">
                                             <span className="w-1.5 h-1.5 rounded-full bg-[#e86f2d] animate-pulse" />
-                                            <span className="hidden sm:inline">TARGET ARXIV:</span>
+                                            <span className="hidden sm:inline">
+                                                TARGET ARXIV:
+                                            </span>
                                             {detectedArxivId}
-                                            <button 
-                                                onClick={() => setInput(input.replace(detectedArxivId, ""))} 
+                                            <button
+                                                onClick={() =>
+                                                    setInput(
+                                                        input.replace(
+                                                            detectedArxivId,
+                                                            "",
+                                                        ),
+                                                    )
+                                                }
                                                 className="hover:text-[#17130c] ml-1 text-xs"
                                             >
                                                 ×
@@ -965,17 +1285,24 @@ export default function DashboardPage() {
                                 <div className="flex items-end gap-2 p-2">
                                     <textarea
                                         value={input}
-                                        onChange={(e) => setInput(e.target.value)}
+                                        onChange={(e) =>
+                                            setInput(e.target.value)
+                                        }
                                         onKeyDown={(e) => {
-                                            if (e.key === "Enter" && !e.shiftKey) {
+                                            if (
+                                                e.key === "Enter" &&
+                                                !e.shiftKey
+                                            ) {
                                                 e.preventDefault();
                                                 handleAnalyze();
                                             }
                                         }}
                                         placeholder={
-                                            mode === "paper" ? "Input ArXiv ID or URL to distill blueprint..." :
-                                            mode === "constellation" ? "Describe the idea or market you want mapped..." :
-                                            "Describe your SaaS product to find R&D boosts..."
+                                            mode === "paper"
+                                                ? "Input ArXiv ID or URL to distill blueprint..."
+                                                : mode === "constellation"
+                                                  ? "Describe the idea or market you want mapped..."
+                                                  : "Describe your SaaS product to find R&D boosts..."
                                         }
                                         className="flex-1 bg-transparent border-none outline-none resize-none py-2 px-1 text-sm text-[#17130c] placeholder:text-[#8a7a5d] min-h-[44px] max-h-32"
                                         rows={1}
@@ -985,17 +1312,30 @@ export default function DashboardPage() {
                                         onClick={() => handleAnalyze()}
                                         disabled={!input.trim() || analyzing}
                                         className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-                                            input.trim() 
-                                                ? "bg-[#e86f2d] text-[#fff9eb] scale-100 hover:scale-105" 
+                                            input.trim()
+                                                ? "bg-[#e86f2d] text-[#fff9eb] scale-100 hover:scale-105"
                                                 : "bg-[#efe3cc] text-[#8a7a5d] scale-90"
                                         }`}
                                         aria-label="Submit"
                                     >
                                         {analyzing ? (
-                                            <Spinner size={16} color="#17130c" />
+                                            <Spinner
+                                                size={16}
+                                                color="#17130c"
+                                            />
                                         ) : (
-                                            <svg className="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M13 5l7 7-7 7M5 5l7 7-7 7" />
+                                            <svg
+                                                className="w-5 h-5"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke="currentColor"
+                                            >
+                                                <path
+                                                    strokeLinecap="round"
+                                                    strokeLinejoin="round"
+                                                    strokeWidth={2.5}
+                                                    d="M13 5l7 7-7 7M5 5l7 7-7 7"
+                                                />
                                             </svg>
                                         )}
                                     </button>
@@ -1005,7 +1345,9 @@ export default function DashboardPage() {
 
                         <div className="flex flex-col sm:flex-row justify-center gap-3 sm:gap-6">
                             <p className="text-[0.5rem] lg:text-[0.55rem] font-mono text-[#8a7a5d] uppercase tracking-[0.3em] text-center">
-                                <span className="hidden sm:inline">ENTER TO FORGE</span>
+                                <span className="hidden sm:inline">
+                                    ENTER TO FORGE
+                                </span>
                                 <span className="sm:hidden">↵ TO FORGE</span>
                             </p>
                             <p className="text-[0.5rem] lg:text-[0.55rem] font-mono text-[#8a7a5d] uppercase tracking-[0.3em] text-center">
