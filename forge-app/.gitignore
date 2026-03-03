@@ -9,6 +9,11 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+.env.local
 
 # testing
 /coverage
