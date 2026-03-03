@@ -1,6 +1,16 @@
-# FORGE
+# 🚀 FORGE
 
-FORGE turns research papers into execution-ready SaaS blueprints.
+**Turn research papers or product ideas into full SaaS blueprints — powered by AI agents in minutes!**
+
+## Why Forge? 🔥
+
+- From idea/paper to blueprint **fast** — No more endless reading or blank-page syndrome
+- AI agents do the heavy thinking — Agno + FastAPI + Bedrock = deep, structured analysis
+- Live streaming dashboard — Watch ideas form in real-time (feels magical!)
+- Save & revisit sessions — Build on previous blueprints, delete when done
+- Hackathon-proven — Quick setup, modern stack, ready for demos
+
+Perfect for: turning academic papers into startups, brainstorming MVPs, or impressing judges with AI depth.
 
 ## Current Product Scope
 
