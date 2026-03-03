@@ -622,7 +622,7 @@ export default function DashboardPage() {
                     </div>
                     {sessions.length === 0 ? (
                         <div className="px-3 py-8 text-center space-y-2">
-                            <div className="text-[#9c8e74] text-2xl">📁</div>
+                            <div className="text-[#9c8e74] text-2xl"></div>
                             <p className="text-[#8a7a5d] text-[0.7rem] font-mono uppercase tracking-widest">
                                 {sessionsLoaded ? "No history recorded" : "Loading sessions"}
                             </p>
@@ -649,7 +649,7 @@ export default function DashboardPage() {
                                         className="flex-1 text-left p-2 rounded-md flex items-center gap-3 min-w-0"
                                     >
                                         <span className="text-[0.8rem] opacity-50 shrink-0">
-                                            {s.mode === "paper" ? "📄" : s.mode === "constellation" ? "✨" : "💼"}
+                                            {s.mode === "paper" ? "" : s.mode === "constellation" ? "" : ""}
                                         </span>
                                         <div className="flex-1 min-w-0">
                                             <div className={`text-[0.75rem] font-medium truncate ${
@@ -796,7 +796,7 @@ export default function DashboardPage() {
                                 </div>
                             ) : !currentSession.data ? (
                                 <div className="lp-card p-6 lg:p-8 border-dashed flex flex-col items-center justify-center text-center space-y-4">
-                                    <div className="text-[#8a7a5d] text-3xl">📡</div>
+                                    <div className="text-[#8a7a5d] text-3xl"></div>
                                     <div className="space-y-1">
                                         <h3 className="text-xs lg:text-sm font-bold uppercase tracking-widest">Awaiting Command</h3>
                                         <p className="text-[0.65rem] lg:text-xs text-[#8a7a5d]">
@@ -901,10 +901,10 @@ export default function DashboardPage() {
                                     }`}
                                 >
                                     <span className="hidden sm:inline">
-                                        {m === "constellation" ? "✨ Constell" : m === "paper" ? "📄 Ingest" : "💼 SaaS"}
+                                        {m === "constellation" ? " Constell" : m === "paper" ? " Ingest" : " SaaS"}
                                     </span>
                                     <span className="sm:hidden">
-                                        {m === "constellation" ? "✨" : m === "paper" ? "📄" : "💼"}
+                                        {m === "constellation" ? "" : m === "paper" ? "" : ""}
                                     </span>
                                 </button>
                             ))}

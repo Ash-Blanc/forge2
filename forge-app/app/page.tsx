@@ -276,7 +276,7 @@ export default function LandingPage() {
                         <span className="font-extrabold">FORGE</span>
                         <span className="text-[#e86f2d]">⬡</span>
                     </div>
-                    <p className="text-sm text-[#7b6947]">© {new Date().getFullYear()} Forge Labs.</p>
+                    <p className="text-sm text-[#7b6947]"> {new Date().getFullYear()} Forge Labs.</p>
                     <div className="flex items-center gap-6 text-sm text-[#7b6947]">
                         <button
                             data-cta-id="footer-get-started"
