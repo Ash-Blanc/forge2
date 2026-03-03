@@ -1,6 +1,6 @@
 // lib/hydrate.ts
 // Transforms Supabase snake_case rows into the camelCase ForgePaper shape
-// the frontend expects. Keep all DB↔UI translation in one place.
+// the frontend expects. Keep all DBUI translation in one place.
 
 import type { ForgePaper } from "./types";
 
