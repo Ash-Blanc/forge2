@@ -82,7 +82,9 @@ export default function CanvasPage() {
                     geo: 'rectangle',
                     w: boxWidth,
                     h: boxHeight,
-                    text: `${session.mode.toUpperCase()}\n\n${session.title}`,
+                    text: `${session.mode.toUpperCase()}
+
+${session.title}`,
                     font: 'mono',
                     align: 'middle',
                     verticalAlign: 'middle',

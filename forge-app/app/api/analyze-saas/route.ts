@@ -20,15 +20,9 @@ Prioritize papers that have an verifiable arXiv ID.
 
 CRITICAL: You must output ONLY raw JSON. Do not include introductory text like 'Here are the papers...'. Start your response with { and end with }.`;
 
-    const message = String(prompt ?? "").trim();
-    if (!message) {
-        return new Response(JSON.stringify({ error: "message is required" }), { status: 400 });
-    }
-
     const form = new URLSearchParams();
-    form.set("message", message);
+    form.set("message", prompt);
     form.set("stream", "true");
-    form.set("session_state", JSON.stringify(body ?? {}));
 
     try {
         let agnoRes = await fetch(`${AGNO_BASE_URL}/agents/market-strategist/runs`, {
@@ -41,13 +35,12 @@ CRITICAL: You must output ONLY raw JSON. Do not include introductory text like '
             agnoRes = await fetch(`${AGNO_BASE_URL}/agents/market-strategist/runs`, {
                 method: "POST",
                 headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "text/event-stream" },
-                body: new URLSearchParams({ message, stream: "true" }).toString(),
+                body: new URLSearchParams({ message: prompt, stream: "true" }).toString(),
             });
         }
 
         if (!agnoRes.ok) {
-            const detail = await agnoRes.text().catch(() => "");
-            return new Response(JSON.stringify({ error: `Agno AgentOS failed (${agnoRes.status})`, detail }), { status: 500 });
+            return new Response(JSON.stringify({ error: `Agno AgentOS failed (${agnoRes.status})` }), { status: 500 });
         }
 
         let accumulatedText = "";

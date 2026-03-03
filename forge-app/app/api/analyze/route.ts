@@ -18,15 +18,9 @@ Abstract: ${(body.abstract || "").slice(0, 5000)}
 
 Return ONLY valid JSON.`;
 
-    const message = String(prompt ?? "").trim();
-    if (!message) {
-        return new Response(JSON.stringify({ error: "message is required" }), { status: 400 });
-    }
-
     const form = new URLSearchParams();
-    form.set("message", message);
+    form.set("message", prompt);
     form.set("stream", "true");
-    form.set("session_state", JSON.stringify(body ?? {}));
 
     try {
         let agnoRes = await fetch(`${AGNO_BASE_URL}/agents/forge-analyst/runs`, {
@@ -35,18 +29,16 @@ Return ONLY valid JSON.`;
             body: form.toString(),
         });
 
-        // Agno can reject extended payloads on some versions; retry with minimal shape.
         if (agnoRes.status === 422) {
             agnoRes = await fetch(`${AGNO_BASE_URL}/agents/forge-analyst/runs`, {
                 method: "POST",
                 headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "text/event-stream" },
-                body: new URLSearchParams({ message, stream: "true" }).toString(),
+                body: new URLSearchParams({ message: prompt, stream: "true" }).toString(),
             });
         }
 
         if (!agnoRes.ok) {
-            const detail = await agnoRes.text().catch(() => "");
-            return new Response(JSON.stringify({ error: `Agno AgentOS failed (${agnoRes.status})`, detail }), { status: 500 });
+            return new Response(JSON.stringify({ error: `Agno AgentOS failed (${agnoRes.status})` }), { status: 500 });
         }
 
         let accumulatedText = "";
@@ -94,14 +86,14 @@ Return ONLY valid JSON.`;
                                 || eventName === "run_output"
                             ) {
                                 try {
-                                    let finalText = contentText || accumulatedText || "null";
-                                    finalText = finalText.replace(/<thinking>[\s\S]*?<\/thinking>/g, "").trim();
-                                    const parsed = JSON.parse(finalText);
+                                    let content = data.content || "";
+                                    content = content.replace(/<thinking[\s\S]*?>/g, "").replace(/<\/thinking>/g, "");
+                                    const parsed = JSON.parse(content);
                                     controller.enqueue(`data: ${JSON.stringify({ type: "done", analysis: parsed })}\n\n`);
                                 } catch {
-                                    let fallbackText = contentText || accumulatedText || "null";
-                                    fallbackText = fallbackText.replace(/<thinking>[\s\S]*?<\/thinking>/g, "").trim();
-                                    controller.enqueue(`data: ${JSON.stringify({ type: "done", text: fallbackText })}\n\n`);
+                                    let content = data.content || "";
+                                    content = content.replace(/<thinking[\s\S]*?>/g, "").replace(/<\/thinking>/g, "");
+                                    controller.enqueue(`data: ${JSON.stringify({ type: "done", text: content })}\n\n`);
                                 }
                             }
                         } catch (e) {
