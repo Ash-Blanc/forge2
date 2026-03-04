@@ -1,0 +1,145 @@
+/* Custom styles for tldraw canvas */
+
+.tldraw-canvas {
+  --color-background: var(--color-bg);
+  --color-text: var(--color-text);
+  --color-muted: var(--color-muted);
+}
+
+/* Override tldraw default styles to match FORGE design */
+.tl-canvas {
+  background-color: var(--color-bg) !important;
+}
+
+/* Hide tldraw's default UI chrome */
+.tlui-layout__top {
+  display: none;
+}
+
+/* Keep toolbar but style it */
+.tlui-toolbar {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 8px !important;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1) !important;
+}
+
+.tlui-toolbar button {
+  color: var(--color-text) !important;
+}
+
+.tlui-toolbar button:hover {
+  background: var(--color-elevated) !important;
+}
+
+/* Style the style panel */
+.tlui-style-panel {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 8px !important;
+}
+
+/* Shape styling */
+.tl-shape {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    monospace !important;
+}
+
+/* Arrow labels */
+.tl-arrow-label {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas,
+    monospace !important;
+  font-size: 11px !important;
+}
+
+/* Custom node colors based on FORGE palette */
+.tl-shape[data-type="paper"] .tl-shape-fill {
+  fill: var(--color-accent-dim);
+}
+
+.tl-shape[data-type="opportunity"] .tl-shape-fill {
+  fill: var(--color-teal-dim);
+}
+
+.tl-shape[data-type="innovation"] .tl-shape-fill {
+  fill: var(--color-blue-dim);
+}
+
+/* Minimap */
+.tlui-minimap {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 8px !important;
+}
+
+/* Context menu */
+.tlui-context-menu {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 8px !important;
+}
+
+.tlui-context-menu button {
+  color: var(--color-text) !important;
+}
+
+.tlui-context-menu button:hover {
+  background: var(--color-elevated) !important;
+}
+
+/* Page menu */
+.tlui-page-menu {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+}
+
+/* Help menu */
+.tlui-help-menu {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 8px !important;
+}
+
+/* Zoom controls */
+.tlui-zoom-menu {
+  background: var(--color-surface) !important;
+  border: 1px solid var(--color-border) !important;
+  border-radius: 8px !important;
+}
+
+/* Selection outline */
+.tl-selection-container {
+  outline: 2px solid var(--color-accent) !important;
+}
+
+/* Selection brush */
+.tl-brush {
+  fill: var(--color-accent-dim) !important;
+  stroke: var(--color-accent) !important;
+}
+
+/* Grid */
+.tl-grid {
+  opacity: 0.3 !important;
+}
+
+/* Dark mode adjustments */
+.dark .tl-canvas {
+  background-color: var(--color-bg) !important;
+}
+
+.dark .tlui-toolbar,
+.dark .tlui-style-panel,
+.dark .tlui-minimap,
+.dark .tlui-context-menu,
+.dark .tlui-page-menu,
+.dark .tlui-help-menu,
+.dark .tlui-zoom-menu {
+  background: var(--color-surface) !important;
+  border-color: var(--color-border) !important;
+}
+
+/* Hide the tldraw watermark/menu for a cleaner look */
+.tlui-menu-zone {
+  display: none;
+}

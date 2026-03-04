@@ -21,6 +21,9 @@
     --color-stone: #8d7753;
     --color-stone-dim: rgba(141, 119, 83, 0.12);
     --color-blue: #2d6fb9;
+    --color-blue-dim: rgba(45, 111, 185, 0.12);
+    --color-amber: #d4a03c;
+    --color-amber-dim: rgba(212, 160, 60, 0.12);
     --color-red: #c43f3f;
     --color-red-dim: rgba(196, 63, 63, 0.1);
 
@@ -53,6 +56,9 @@
         --stone: var(--color-stone);
         --stone-dim: var(--color-stone-dim);
         --blue: var(--color-blue);
+        --blue-dim: var(--color-blue-dim);
+        --amber: var(--color-amber);
+        --amber-dim: var(--color-amber-dim);
         --red: var(--color-red);
         --red-dim: var(--color-red-dim);
 
@@ -384,3 +390,6 @@
         animation: fade-in-up 0.65s ease-out both;
     }
 }
+
+/* Canvas Mode Styles */
+@import "../components/canvas/canvas-styles.css";
