@@ -59,6 +59,7 @@ export async function processForgeWorkflow(
     title: string, 
     abstract: string, 
     authors: string[], 
+    userQuery?: string,
     onProgress?: (text: string) => void
 ) {
     const notify = (msg: string) => { onProgress?.(msg); };
@@ -69,6 +70,7 @@ export async function processForgeWorkflow(
     Title: ${title}
     Authors: ${authors.join(", ")}
     Abstract: ${abstract}
+    ${userQuery ? `User request for this turn: ${userQuery}` : ""}
     Return ONLY valid JSON as requested.`;
     
     notify("Waiting for Forge Analyst agent...\n");

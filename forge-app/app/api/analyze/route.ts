@@ -6,6 +6,8 @@ export const runtime = "nodejs";
 
 export async function POST(req: NextRequest) {
     const body = await req.json();
+    const userQuery =
+        typeof body.userQuery === "string" ? body.userQuery.trim() : "";
     if (!body.title || !body.abstract) {
         return new Response(JSON.stringify({ error: "title and abstract required" }), { status: 400 });
     }
@@ -27,6 +29,7 @@ export async function POST(req: NextRequest) {
                     body.title,
                     body.abstract,
                     body.authors || [],
+                    userQuery,
                     (delta) => sendDelta(delta) // we pass a delta callback down to the TS orchestrator!
                 );
 

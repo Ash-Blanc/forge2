@@ -5,6 +5,8 @@ import Link from "next/link";
 import dynamic from "next/dynamic";
 import { UserButton, useUser } from "@clerk/nextjs";
 import { Avatar, Spinner, Tag, SectionLabel } from "@/components/ui";
+import { AnalysisReport } from "@/components/AnalysisReport";
+import { parseStreamedJson } from "@/lib/parseStreamedJson";
 
 const PaperCanvas = dynamic(
     () => import("@/components/PaperCanvas").then((m) => m.PaperCanvas),
@@ -73,12 +75,12 @@ const extractArxivId = (input: string): string | null => {
     return null;
 };
 
-const safeJsonParse = (raw: string): unknown => {
-    try {
-        return JSON.parse(raw);
-    } catch {
-        return raw;
-    }
+const stripArxivReference = (input: string, arxivId: string): string => {
+    return input
+        .replace(new RegExp(`https?://arxiv\\.org/(?:abs|pdf)/${arxivId}(?:\\.pdf)?`, "gi"), "")
+        .replace(new RegExp(`\\barxiv:${arxivId}\\b`, "gi"), "")
+        .replace(new RegExp(`\\b${arxivId}\\b`, "gi"), "")
+        .trim();
 };
 
 const parseMaybeJsonString = (value: string): unknown => {
@@ -97,6 +99,11 @@ const parseMaybeJsonString = (value: string): unknown => {
     } catch {
         return value;
     }
+};
+
+const safeJsonParse = (raw: string): unknown => {
+    const parsed = parseMaybeJsonString(raw);
+    return parsed !== raw ? parsed : raw;
 };
 
 const trimTitle = (value: string): string => {
@@ -241,6 +248,32 @@ export default function DashboardPage() {
     const [error, setError] = useState("");
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [viewMode, setViewMode] = useState<"text" | "canvas">("text");
+    const [copied, setCopied] = useState(false);
+
+    const handleShare = async () => {
+        if (!currentSession || !currentSession.data?.output) return;
+        const data = currentSession.data.output as any;
+        const analysis = data.analysis || data;
+
+        const lines = [
+            `✦ Forge Blueprint: ${currentSession.title} ✦\n`,
+            analysis.opportunity ? `🎯 CORE OPPORTUNITY:\n${analysis.opportunity}\n` : '',
+            analysis.coreInnovation ? `💡 TECHNICAL BREAKTHROUGH:\n${analysis.coreInnovation}\n` : '',
+            analysis.targetCustomer ? `👥 IDEAL CUSTOMER:\n${analysis.targetCustomer}\n` : '',
+            analysis.marketSize ? `📈 MARKET SIZE:\n${analysis.marketSize}\n` : '',
+            analysis.moatAnalysis ? `🛡️ DEFENSIBILITY:\n${analysis.moatAnalysis}\n` : '',
+            (analysis.buildComplexity || analysis.mvpDays) ? `⚙️ EXECUTION:\nComplexity: ${analysis.buildComplexity} | MVP Time: ~${analysis.mvpDays} days\n` : '',
+            `\nShared from FORGE AI`
+        ];
+
+        try {
+            await navigator.clipboard.writeText(lines.filter(Boolean).join('\n'));
+            setCopied(true);
+            setTimeout(() => setCopied(false), 2000);
+        } catch (err) {
+            console.error("Failed to copy", err);
+        }
+    };
 
     const scrollRef = useRef<HTMLDivElement>(null);
 
@@ -457,6 +490,10 @@ export default function DashboardPage() {
     };
 
     const currentSession = sessions.find((s) => s.id === currentSessionId);
+    const canSubmitWithSessionPaper =
+        mode === "paper" &&
+        currentSession?.mode === "paper" &&
+        Boolean(currentSession.arxivId);
     const detectedArxivId = extractArxivId(input);
 
     const readStreamingResponse = async (res: Response) => {
@@ -541,35 +578,70 @@ export default function DashboardPage() {
 
         try {
             if (targetMode === "paper") {
-                const arxivId = manualId || extractArxivId(targetInput);
+                const activePaperSession =
+                    currentSession?.mode === "paper" ? currentSession : null;
+                const explicitArxivId = manualId || extractArxivId(targetInput);
+                const arxivId = explicitArxivId || activePaperSession?.arxivId;
                 if (!arxivId) {
                     throw new Error(
-                        "Paper mode requires a valid arXiv ID or URL.",
+                        "Paper mode requires a valid arXiv ID or URL for the first run.",
                     );
                 }
 
-                setStatusText("Fetching arXiv metadata");
-                const metaRes = await fetch(
-                    `/api/arxiv?id=${encodeURIComponent(arxivId)}`,
+                const shouldReuseSession = Boolean(
+                    activePaperSession &&
+                    (!explicitArxivId ||
+                        explicitArxivId === activePaperSession.arxivId),
                 );
-                if (!metaRes.ok) {
-                    const metaErr = await metaRes.json().catch(() => ({}));
-                    throw new Error(
-                        metaErr?.error || "Failed to fetch arXiv metadata.",
+                let meta: ArxivMeta | undefined = shouldReuseSession
+                    ? activePaperSession?.meta
+                    : undefined;
+
+                if (!meta) {
+                    setStatusText("Fetching arXiv metadata");
+                    const metaRes = await fetch(
+                        `/api/arxiv?id=${encodeURIComponent(arxivId)}`,
                     );
+                    if (!metaRes.ok) {
+                        const metaErr = await metaRes.json().catch(() => ({}));
+                        throw new Error(
+                            metaErr?.error || "Failed to fetch arXiv metadata.",
+                        );
+                    }
+                    meta = (await metaRes.json()) as ArxivMeta;
                 }
 
-                const meta = (await metaRes.json()) as ArxivMeta;
-                const session = await createSession({
-                    mode: targetMode,
-                    title: trimTitle(getPaperSessionTitle(meta, arxivId)),
-                    inputText: targetInput,
-                    arxivId,
-                    meta,
-                });
+                const session = shouldReuseSession && activePaperSession
+                    ? activePaperSession
+                    : await createSession({
+                        mode: targetMode,
+                        title: trimTitle(getPaperSessionTitle(meta, arxivId)),
+                        inputText: targetInput,
+                        arxivId,
+                        meta,
+                    });
                 activeSessionId = session.id;
                 setCurrentSessionId(session.id);
                 setInput("");
+
+                if (shouldReuseSession) {
+                    const nextInputText =
+                        targetInput || activePaperSession?.inputText;
+                    patchSession(session.id, {
+                        inputText: nextInputText,
+                        arxivId,
+                        meta,
+                        error: undefined,
+                    });
+                    await patchSessionRemote(session.id, {
+                        inputText: nextInputText,
+                        arxivId,
+                        meta,
+                        error: undefined,
+                    });
+                }
+
+                const userQuery = stripArxivReference(targetInput, arxivId);
 
                 setStatusText("Running Forge Analyst");
                 const analyzeRes = await fetch("/api/analyze", {
@@ -578,6 +650,7 @@ export default function DashboardPage() {
                     body: JSON.stringify({
                         ...meta,
                         arxivId,
+                        userQuery: userQuery || undefined,
                         model: selectedModel,
                     }),
                 });
@@ -807,11 +880,10 @@ export default function DashboardPage() {
                         sessions.map((s) => (
                             <div
                                 key={s.id}
-                                className={`w-full p-1 rounded-lg transition-all border ${
-                                    currentSessionId === s.id
-                                        ? "bg-[#fff5e2] border-[#eec681]"
-                                        : "hover:bg-[#f8efde] border-transparent"
-                                }`}
+                                className={`w-full p-1 rounded-lg transition-all border ${currentSessionId === s.id
+                                    ? "bg-[#fff5e2] border-[#eec681]"
+                                    : "hover:bg-[#f8efde] border-transparent"
+                                    }`}
                             >
                                 <div className="flex items-center gap-2">
                                     <button
@@ -828,16 +900,15 @@ export default function DashboardPage() {
                                             {s.mode === "paper"
                                                 ? ""
                                                 : s.mode === "constellation"
-                                                  ? ""
-                                                  : ""}
+                                                    ? ""
+                                                    : ""}
                                         </span>
                                         <div className="flex-1 min-w-0">
                                             <div
-                                                className={`text-[0.75rem] font-medium truncate ${
-                                                    currentSessionId === s.id
-                                                        ? "text-[#b2541f]"
-                                                        : "text-[#17130c]"
-                                                }`}
+                                                className={`text-[0.75rem] font-medium truncate ${currentSessionId === s.id
+                                                    ? "text-[#b2541f]"
+                                                    : "text-[#17130c]"
+                                                    }`}
                                             >
                                                 {s.title}
                                             </div>
@@ -966,11 +1037,14 @@ export default function DashboardPage() {
                             <span className="hidden sm:inline">Canvas</span>
                         </Link>
                         {currentSession ? (
-                            <button className="lp-btn-secondary h-8 px-2 lg:px-3 text-[0.6rem] lg:text-[0.65rem] whitespace-nowrap">
+                            <button
+                                onClick={handleShare}
+                                className="lp-btn-secondary h-8 px-2 lg:px-3 text-[0.6rem] lg:text-[0.65rem] whitespace-nowrap transition-all"
+                            >
                                 <span className="hidden sm:inline">
-                                    Share Blueprint
+                                    {copied ? "Copied!" : "Share Blueprint"}
                                 </span>
-                                <span className="sm:hidden">Share</span>
+                                <span className="sm:hidden">{copied ? "Copied" : "Share"}</span>
                             </button>
                         ) : (
                             <button
@@ -1058,8 +1132,8 @@ export default function DashboardPage() {
                                                 currentSession.arxivId,
                                                 currentSession.mode,
                                                 currentSession.inputText ||
-                                                    input ||
-                                                    currentSession.title,
+                                                input ||
+                                                currentSession.title,
                                             )
                                         }
                                         className="lp-btn-primary px-4 py-2 text-sm"
@@ -1079,11 +1153,10 @@ export default function DashboardPage() {
                                                     onClick={() =>
                                                         setViewMode("text")
                                                     }
-                                                    className={`px-3 py-1.5 text-[0.65rem] lg:text-xs font-medium rounded-md transition-colors ${
-                                                        viewMode === "text"
-                                                            ? "bg-[#eadfc9] text-[#3f3525] shadow-sm"
-                                                            : "text-[#8a7a5d] hover:bg-[#eadfc9]/50"
-                                                    }`}
+                                                    className={`px-3 py-1.5 text-[0.65rem] lg:text-xs font-medium rounded-md transition-colors ${viewMode === "text"
+                                                        ? "bg-[#eadfc9] text-[#3f3525] shadow-sm"
+                                                        : "text-[#8a7a5d] hover:bg-[#eadfc9]/50"
+                                                        }`}
                                                 >
                                                     Text
                                                 </button>
@@ -1091,11 +1164,10 @@ export default function DashboardPage() {
                                                     onClick={() =>
                                                         setViewMode("canvas")
                                                     }
-                                                    className={`px-3 py-1.5 text-[0.65rem] lg:text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${
-                                                        viewMode === "canvas"
-                                                            ? "bg-[#eadfc9] text-[#3f3525] shadow-sm"
-                                                            : "text-[#8a7a5d] hover:bg-[#eadfc9]/50"
-                                                    }`}
+                                                    className={`px-3 py-1.5 text-[0.65rem] lg:text-xs font-medium rounded-md transition-colors flex items-center gap-1.5 ${viewMode === "canvas"
+                                                        ? "bg-[#eadfc9] text-[#3f3525] shadow-sm"
+                                                        : "text-[#8a7a5d] hover:bg-[#eadfc9]/50"
+                                                        }`}
                                                 >
                                                     <svg
                                                         width="12"
@@ -1128,22 +1200,28 @@ export default function DashboardPage() {
                                         </div>
 
                                         {viewMode === "text" ? (
-                                            <div className="space-y-3">
-                                                {getReadableSections(
-                                                    currentSession.data.output,
-                                                ).map((section) => (
-                                                    <div
-                                                        key={section.title}
-                                                        className="rounded-lg border border-[#eadfc9] bg-[#fff8eb] p-3"
-                                                    >
-                                                        <p className="text-[0.62rem] lg:text-[0.68rem] font-mono uppercase tracking-widest text-[#8a7a5d]">
-                                                            {section.title}
-                                                        </p>
-                                                        <p className="mt-1 text-[#3f3525] text-[0.72rem] lg:text-[0.8rem] leading-relaxed whitespace-pre-wrap break-words">
-                                                            {section.body}
-                                                        </p>
+                                            <div className="mt-4">
+                                                {currentSession.mode === "paper" ? (
+                                                    <AnalysisReport data={currentSession.data.output as any} />
+                                                ) : (
+                                                    <div className="space-y-3">
+                                                        {getReadableSections(
+                                                            currentSession.data.output,
+                                                        ).map((section) => (
+                                                            <div
+                                                                key={section.title}
+                                                                className="rounded-lg border border-[#eadfc9] bg-[#fff8eb] p-3"
+                                                            >
+                                                                <p className="text-[0.62rem] lg:text-[0.68rem] font-mono uppercase tracking-widest text-[#8a7a5d]">
+                                                                    {section.title}
+                                                                </p>
+                                                                <p className="mt-1 text-[#3f3525] text-[0.72rem] lg:text-[0.8rem] leading-relaxed whitespace-pre-wrap break-words">
+                                                                    {section.body}
+                                                                </p>
+                                                            </div>
+                                                        ))}
                                                     </div>
-                                                ))}
+                                                )}
                                             </div>
                                         ) : (
                                             <PaperCanvas
@@ -1156,12 +1234,23 @@ export default function DashboardPage() {
                                 </div>
                             )}
 
-                            {streamOutput ? (
-                                <div className="lp-card p-4 lg:p-5">
+                            {streamOutput && analyzing ? (
+                                <div className="lp-card p-4 lg:p-6 mt-6">
                                     <SectionLabel>Live Stream</SectionLabel>
-                                    <pre className="text-[#5b4e37] text-[0.7rem] lg:text-xs leading-relaxed whitespace-pre-wrap break-words max-h-56 overflow-auto">
-                                        {streamOutput}
-                                    </pre>
+                                    <div className="mt-4">
+                                        {(() => {
+                                            const parsed = parseStreamedJson(streamOutput);
+                                            // Only render as a report if it's paper mode and looks like our object
+                                            if (mode === "paper" && parsed && typeof parsed === 'object') {
+                                                return <AnalysisReport data={parsed} isStreaming={true} />;
+                                            }
+                                            return (
+                                                <pre className="text-[#5b4e37] text-[0.7rem] lg:text-[0.8rem] leading-relaxed whitespace-pre-wrap break-words max-h-[60vh] overflow-auto bg-[#fffcf5] border border-[#eadfc9] p-4 rounded-xl">
+                                                    {streamOutput}<span className="animate-blink text-[#e86f2d]">▌</span>
+                                                </pre>
+                                            );
+                                        })()}
+                                    </div>
                                 </div>
                             ) : null}
 
@@ -1240,25 +1329,24 @@ export default function DashboardPage() {
                                 <button
                                     key={m}
                                     onClick={() => setMode(m)}
-                                    className={`px-2 lg:px-3 py-1 rounded-full text-[0.55rem] lg:text-[0.6rem] font-mono uppercase tracking-[0.2em] transition-all border ${
-                                        mode === m
-                                            ? "bg-[#e86f2d] text-[#fff8eb] border-[#e86f2d] font-bold"
-                                            : "bg-[#fdf8ed] text-[#6b5b3f] border-[#e5d9c3] hover:text-[#17130c]"
-                                    }`}
+                                    className={`px-2 lg:px-3 py-1 rounded-full text-[0.55rem] lg:text-[0.6rem] font-mono uppercase tracking-[0.2em] transition-all border ${mode === m
+                                        ? "bg-[#e86f2d] text-[#fff8eb] border-[#e86f2d] font-bold"
+                                        : "bg-[#fdf8ed] text-[#6b5b3f] border-[#e5d9c3] hover:text-[#17130c]"
+                                        }`}
                                 >
                                     <span className="hidden sm:inline">
                                         {m === "constellation"
                                             ? " Constell"
                                             : m === "paper"
-                                              ? " Ingest"
-                                              : " SaaS"}
+                                                ? " Ingest"
+                                                : " SaaS"}
                                     </span>
                                     <span className="sm:hidden">
                                         {m === "constellation"
                                             ? ""
                                             : m === "paper"
-                                              ? ""
-                                              : ""}
+                                                ? ""
+                                                : ""}
                                     </span>
                                 </button>
                             ))}
@@ -1308,10 +1396,12 @@ export default function DashboardPage() {
                                         }}
                                         placeholder={
                                             mode === "paper"
-                                                ? "Input ArXiv ID or URL to distill blueprint..."
+                                                ? canSubmitWithSessionPaper
+                                                    ? `Ask about this paper (arXiv:${currentSession?.arxivId}) or paste a new arXiv ID to switch...`
+                                                    : "Input arXiv ID or URL to distill blueprint..."
                                                 : mode === "constellation"
-                                                  ? "Describe the idea or market you want mapped..."
-                                                  : "Describe your SaaS product to find R&D boosts..."
+                                                    ? "Describe the idea or market you want mapped..."
+                                                    : "Describe your SaaS product to find R&D boosts..."
                                         }
                                         className="flex-1 bg-transparent border-none outline-none resize-none py-2 px-1 text-sm text-[#17130c] placeholder:text-[#8a7a5d] min-h-[44px] max-h-32"
                                         rows={1}
@@ -1319,12 +1409,15 @@ export default function DashboardPage() {
                                     />
                                     <button
                                         onClick={() => handleAnalyze()}
-                                        disabled={!input.trim() || analyzing}
-                                        className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all ${
-                                            input.trim()
-                                                ? "bg-[#e86f2d] text-[#fff9eb] scale-100 hover:scale-105"
-                                                : "bg-[#efe3cc] text-[#8a7a5d] scale-90"
-                                        }`}
+                                        disabled={
+                                            analyzing ||
+                                            (!input.trim() &&
+                                                !canSubmitWithSessionPaper)
+                                        }
+                                        className={`shrink-0 w-10 h-10 rounded-lg flex items-center justify-center transition-all ${(input.trim() || canSubmitWithSessionPaper)
+                                            ? "bg-[#e86f2d] text-[#fff9eb] scale-100 hover:scale-105"
+                                            : "bg-[#efe3cc] text-[#8a7a5d] scale-90"
+                                            }`}
                                         aria-label="Submit"
                                     >
                                         {analyzing ? (
