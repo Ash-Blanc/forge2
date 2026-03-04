@@ -53,6 +53,9 @@ jobs:
     - name: Lint Next.js
       run: bunx eslint .
 
+    - name: Run Unit Tests
+      run: bun run test
+
     - name: Build Next.js
       run: bun run build
       env:
