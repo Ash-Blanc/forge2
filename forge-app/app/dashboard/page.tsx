@@ -245,6 +245,18 @@ export default function DashboardPage() {
     const [error, setError] = useState("");
     const [sidebarOpen, setSidebarOpen] = useState(true);
     const [copied, setCopied] = useState(false);
+    const [exportMenuOpen, setExportMenuOpen] = useState(false);
+    const exportMenuRef = useRef<HTMLDivElement>(null);
+
+    useEffect(() => {
+        const handler = (e: MouseEvent) => {
+            if (exportMenuRef.current && !exportMenuRef.current.contains(e.target as Node)) {
+                setExportMenuOpen(false);
+            }
+        };
+        document.addEventListener("mousedown", handler);
+        return () => document.removeEventListener("mousedown", handler);
+    }, []);
 
     const handleShare = async () => {
         if (!currentSession || !currentSession.data?.output) return;
@@ -919,7 +931,7 @@ export default function DashboardPage() {
 
                 <div className="flex-1 overflow-y-auto overflow-x-hidden px-2 pb-4 space-y-1">
                     <div className="px-3 py-2">
-                        <SectionLabel>Recent Operations</SectionLabel>
+                        <SectionLabel>Recents</SectionLabel>
                     </div>
                     {sessions.length === 0 ? (
                         <div className="px-3 py-8 text-center space-y-2">
@@ -1092,22 +1104,34 @@ export default function DashboardPage() {
                         </Link>
                         {currentSession ? (
                             <>
-                                <button
-                                    onClick={() => handleExport("md")}
-                                    className="lp-btn-secondary h-8 px-2 lg:px-3 text-[0.6rem] lg:text-[0.65rem] whitespace-nowrap"
-                                    title="Export as Markdown"
-                                >
-                                    <span className="hidden sm:inline">Export MD</span>
-                                    <span className="sm:hidden">MD</span>
-                                </button>
-                                <button
-                                    onClick={() => handleExport("json")}
-                                    className="lp-btn-secondary h-8 px-2 lg:px-3 text-[0.6rem] lg:text-[0.65rem] whitespace-nowrap"
-                                    title="Export as JSON"
-                                >
-                                    <span className="hidden sm:inline">Export JSON</span>
-                                    <span className="sm:hidden">JSON</span>
-                                </button>
+                                <div className="relative" ref={exportMenuRef}>
+                                    <button
+                                        onClick={() => setExportMenuOpen((o) => !o)}
+                                        className="lp-btn-secondary h-8 px-2 lg:px-3 text-[0.6rem] lg:text-[0.65rem] whitespace-nowrap flex items-center gap-1"
+                                        title="Export"
+                                    >
+                                        <span>Export</span>
+                                        <svg className="w-3 h-3 opacity-60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M19 9l-7 7-7-7" />
+                                        </svg>
+                                    </button>
+                                    {exportMenuOpen && (
+                                        <div className="absolute right-0 mt-1 w-12 rounded-lg border border-[#e8dfcf] bg-[#fdf8ed] shadow-lg z-50 overflow-hidden">
+                                            <button
+                                                onClick={() => { handleExport("md"); setExportMenuOpen(false); }}
+                                                className="w-full px-3 py-2 text-[0.65rem] font-mono text-[#3f3525] hover:bg-[#fff5e1] transition-colors"
+                                            >
+                                                MD
+                                            </button>
+                                            <button
+                                                onClick={() => { handleExport("json"); setExportMenuOpen(false); }}
+                                                className="w-full px-3 py-2 text-[0.65rem] font-mono text-[#3f3525] hover:bg-[#fff5e1] transition-colors"
+                                            >
+                                                JSON
+                                            </button>
+                                        </div>
+                                    )}
+                                </div>
                                 <button
                                     onClick={handleShare}
                                     className="lp-btn-secondary h-8 px-2 lg:px-3 text-[0.6rem] lg:text-[0.65rem] whitespace-nowrap transition-all"
