@@ -1116,16 +1116,16 @@ export default function DashboardPage() {
                                         </svg>
                                     </button>
                                     {exportMenuOpen && (
-                                        <div className="absolute right-0 mt-1 w-36 rounded-lg border border-[#e8dfcf] bg-[#fdf8ed] shadow-lg z-50 overflow-hidden">
+                                        <div className="absolute right-0 mt-1 w-12 rounded-lg border border-[#e8dfcf] bg-[#fdf8ed] shadow-lg z-50 overflow-hidden">
                                             <button
                                                 onClick={() => { handleExport("md"); setExportMenuOpen(false); }}
-                                                className="w-full text-left px-3 py-2 text-[0.65rem] font-mono text-[#3f3525] hover:bg-[#fff5e1] transition-colors"
+                                                className="w-full px-3 py-2 text-[0.65rem] font-mono text-[#3f3525] hover:bg-[#fff5e1] transition-colors"
                                             >
                                                 MD
                                             </button>
                                             <button
                                                 onClick={() => { handleExport("json"); setExportMenuOpen(false); }}
-                                                className="w-full text-left px-3 py-2 text-[0.65rem] font-mono text-[#3f3525] hover:bg-[#fff5e1] transition-colors"
+                                                className="w-full px-3 py-2 text-[0.65rem] font-mono text-[#3f3525] hover:bg-[#fff5e1] transition-colors"
                                             >
                                                 JSON
                                             </button>
