@@ -1,8 +1,8 @@
 // app/api/analyze/route.ts
 import { NextRequest } from "next/server";
+import { processForgeWorkflow } from "@/lib/ai/forge";
 
 export const runtime = "nodejs";
-const AGNO_BASE_URL = process.env.AGNO_BASE_URL ?? "http://127.0.0.1:8321";
 
 export async function POST(req: NextRequest) {
     const body = await req.json();
@@ -10,105 +10,41 @@ export async function POST(req: NextRequest) {
         return new Response(JSON.stringify({ error: "title and abstract required" }), { status: 400 });
     }
 
-    const prompt = `Analyze this paper and generate both a paper analysis and startup idea.
+    // We use a ReadableStream to stream status updates back to the UI as the Python agents run sequentially
+    const stream = new ReadableStream({
+        async start(controller) {
+            const encoder = new TextEncoder();
+            const sendDelta = (text: string) => {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "delta", text })}\n\n`));
+            };
 
-Title: ${body.title}
-Authors: ${(body.authors || []).join(", ")}
-Abstract: ${(body.abstract || "").slice(0, 5000)}
+            try {
+                // We fake a typing effect for the UI during the analysis if we have no inner streaming
+                const id = "mock-id-for-now"; // if the paper is entirely ad-hoc from user input
 
-Return ONLY valid JSON.`;
+                const opportunity = await processForgeWorkflow(
+                    id,
+                    body.title,
+                    body.abstract,
+                    body.authors || [],
+                    (delta) => sendDelta(delta) // we pass a delta callback down to the TS orchestrator!
+                );
 
-    const message = String(prompt ?? "").trim();
-    if (!message) {
-        return new Response(JSON.stringify({ error: "message is required" }), { status: 400 });
-    }
-
-    const form = new URLSearchParams();
-    form.set("message", message);
-    form.set("stream", "true");
-    form.set("session_state", JSON.stringify(body ?? {}));
-
-    try {
-        let agnoRes = await fetch(`${AGNO_BASE_URL}/agents/forge-analyst/runs`, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "text/event-stream" },
-            body: form.toString(),
-        });
-
-        // Agno can reject extended payloads on some versions; retry with minimal shape.
-        if (agnoRes.status === 422) {
-            agnoRes = await fetch(`${AGNO_BASE_URL}/agents/forge-analyst/runs`, {
-                method: "POST",
-                headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "text/event-stream" },
-                body: new URLSearchParams({ message, stream: "true" }).toString(),
-            });
-        }
-
-        if (!agnoRes.ok) {
-            const detail = await agnoRes.text().catch(() => "");
-            return new Response(JSON.stringify({ error: `Agno AgentOS failed (${agnoRes.status})`, detail }), { status: 500 });
-        }
-
-        let accumulatedText = "";
-        let sseBuffer = "";
-        const decoder = new TextDecoder();
-        const transformer = new TransformStream({
-            transform(chunk, controller) {
-                sseBuffer += decoder.decode(chunk, { stream: true });
-                const lines = sseBuffer.split("\n");
-                sseBuffer = lines.pop() ?? "";
-
-                for (const line of lines) {
-                    if (line.startsWith("data: ")) {
-                        try {
-                            const data = JSON.parse(line.slice(6));
-                            const eventName = String(data.event ?? "");
-                            const contentValue = data.content;
-                            const contentText = typeof contentValue === "string"
-                                ? contentValue
-                                : contentValue != null
-                                  ? JSON.stringify(contentValue)
-                                  : "";
-
-                            if (
-                                eventName === "RunContent"
-                                || eventName === "RunIntermediateContent"
-                                || eventName === "ReasoningContentDelta"
-                                || eventName === "run_step_delta"
-                            ) {
-                                if (contentText) accumulatedText += contentText;
-                                controller.enqueue(`data: ${JSON.stringify({ type: "delta", text: accumulatedText })}\n\n`);
-                            } else if (eventName === "RunError") {
-                                controller.enqueue(`data: ${JSON.stringify({ type: "error", message: contentText || "Agent run failed" })}\n\n`);
-                            } else if (
-                                eventName === "RunCompleted"
-                                || eventName === "RunContentCompleted"
-                                || eventName === "run_output"
-                            ) {
-                                try {
-                                    const finalText = contentText || accumulatedText || "null";
-                                    const parsed = JSON.parse(finalText);
-                                    controller.enqueue(`data: ${JSON.stringify({ type: "done", analysis: parsed })}\n\n`);
-                                } catch {
-                                    controller.enqueue(`data: ${JSON.stringify({ type: "done", text: contentText || accumulatedText || "null" })}\n\n`);
-                                }
-                            }
-                        } catch (e) {
-                            // Partial JSON or other event, skip
-                        }
-                    }
-                }
+                sendDelta(`\nMarket strategy complete. Finalizing output...\n`);
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "done", analysis: opportunity })}\n\n`));
+            } catch (err: any) {
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: "error", message: err.message })}\n\n`));
+            } finally {
+                controller.close();
             }
-        });
+        }
+    });
 
-        return new Response(agnoRes.body?.pipeThrough(transformer), {
-            headers: {
-                "Content-Type": "text/event-stream",
-                "Cache-Control": "no-cache",
-                "Connection": "keep-alive",
-            },
-        });
-    } catch (err: any) {
-        return new Response(JSON.stringify({ error: err.message }), { status: 500 });
-    }
+    return new Response(stream, {
+        headers: {
+            "Content-Type": "text/event-stream",
+            "Cache-Control": "no-cache",
+            "Connection": "keep-alive",
+        },
+    });
 }
