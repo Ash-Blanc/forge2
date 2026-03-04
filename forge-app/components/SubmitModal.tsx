@@ -1,10 +1,11 @@
 "use client";
 // components/SubmitModal.tsx
 
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import { Spinner } from "./ui";
-import type { ForgeUser } from "@/lib/types";
-import type { ForgeAnalysis } from "@/lib/claude";
+import { AnalysisReport } from "./AnalysisReport";
+import { parseStreamedJson } from "@/lib/parseStreamedJson";
+import type { ForgeUser, ForgeAnalysis } from "@/lib/types";
 import type { ArxivMeta } from "@/lib/arxiv";
 
 interface Props {
@@ -175,11 +176,21 @@ export default function SubmitModal({ user, onPublish, onClose }: Props) {
                             {step === "fetching" ? "Fetching from arXiv…" : "FORGE AI reading the paper…"}
                         </p>
                         {streamRaw && (
-                            <div style={{ background: "var(--bg)", borderRadius: "var(--r-md)", padding: "8px 11px", marginTop: 12, textAlign: "left", maxHeight: 120, overflow: "hidden", position: "relative" }}>
-                                <div style={{ color: "var(--faint)", fontSize: ".6rem", fontFamily: "var(--mono)", marginBottom: 3 }}>LIVE OUTPUT</div>
-                                <pre style={{ color: "var(--faint)", fontSize: ".63rem", fontFamily: "var(--mono)", lineHeight: 1.5, margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
-                                    {streamRaw.slice(-400)}<span className="animate-blink" style={{ color: "var(--accent)" }}>▌</span>
-                                </pre>
+                            <div style={{ marginTop: 24, textAlign: "left" }}>
+                                {(() => {
+                                    const parsed = parseStreamedJson(streamRaw);
+                                    if (parsed && typeof parsed === 'object') {
+                                        return <AnalysisReport data={parsed} isStreaming={true} />;
+                                    }
+                                    return (
+                                        <div style={{ background: "var(--bg)", borderRadius: "var(--r-md)", padding: "12px 14px", overflow: "hidden", position: "relative", border: "1px solid var(--border)" }}>
+                                            <div style={{ color: "var(--faint)", fontSize: ".65rem", fontFamily: "var(--mono)", marginBottom: 8, letterSpacing: ".05em" }}>LIVE OUTPUT</div>
+                                            <pre style={{ color: "var(--text)", fontSize: ".7rem", fontFamily: "var(--mono)", lineHeight: 1.6, margin: 0, whiteSpace: "pre-wrap", wordBreak: "break-word" }}>
+                                                {streamRaw.slice(-800)}<span className="animate-blink" style={{ color: "var(--accent)" }}>▌</span>
+                                            </pre>
+                                        </div>
+                                    );
+                                })()}
                             </div>
                         )}
                     </div>
@@ -196,20 +207,9 @@ export default function SubmitModal({ user, onPublish, onClose }: Props) {
                 {/* Done — review */}
                 {step === "done" && analysis && meta && (
                     <>
-                        <div style={{ background: "var(--bg)", border: "1px solid var(--border)", borderRadius: "var(--r-md)", padding: "12px 14px", marginBottom: 14 }}>
-                            <h3 style={{ color: "var(--text)", fontSize: ".875rem", fontWeight: 700, lineHeight: 1.4, marginBottom: 7 }}>{meta.title}</h3>
-                            <p style={{ color: "var(--muted)", fontSize: ".8rem", lineHeight: 1.55, margin: "0 0 10px", fontStyle: "italic" }}>{analysis.opportunity}</p>
-                            <div style={{ display: "flex", gap: 14, flexWrap: "wrap" }}>
-                                <span style={{ color: "var(--muted)", fontSize: ".67rem", fontFamily: "var(--mono)" }}>
-                                    Complexity: <span style={{ color: "var(--text)" }}>{analysis.buildComplexity}</span>
-                                </span>
-                                <span style={{ color: "var(--muted)", fontSize: ".67rem", fontFamily: "var(--mono)" }}>
-                                    MVP: <span style={{ color: "var(--text)" }}>~{analysis.mvpDays} days</span>
-                                </span>
-                                {analysis.tags?.slice(0, 3).map(t => (
-                                    <span key={t} style={{ color: "var(--muted)", fontSize: ".67rem", fontFamily: "var(--mono)" }}>#{t}</span>
-                                ))}
-                            </div>
+                        <div style={{ marginBottom: 20 }}>
+                            <h3 style={{ color: "var(--text)", fontSize: "1.1rem", fontWeight: 800, lineHeight: 1.4, marginBottom: 16, borderBottom: "1px solid var(--border)", paddingBottom: 12 }}>{meta.title}</h3>
+                            <AnalysisReport data={analysis} />
                         </div>
                         <div style={{ display: "flex", gap: 8 }}>
                             <button onClick={() => { setStep("input"); setAnalysis(null); setStreamRaw(""); }} className="btn-ghost" style={{ padding: "9px 14px" }}>Re-analyze</button>

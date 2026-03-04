@@ -7,3 +7,16 @@ export interface ForgeUser {
     name: string;
     role: Role;
 }
+
+export interface ForgeAnalysis {
+    opportunity: string;
+    coreInnovation: string;
+    targetCustomer: string;
+    marketSize: string;
+    buildComplexity: "low" | "medium" | "high";
+    mvpDays: number;
+    moatAnalysis: string;
+    tags: string[];
+    first90Days: string[];
+    narrativeAnalysis: string;
+}
