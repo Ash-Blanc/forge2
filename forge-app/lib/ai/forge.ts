@@ -3,29 +3,55 @@ import { createClient } from "@supabase/supabase-js";
 // Fetch from the local Agno Python agent server
 const AGNO_BASE_URL = process.env.AGNO_BASE_URL ?? "http://127.0.0.1:8321";
 
-// Simple helper to call an Agno agent synchronously and await the final JSON output string
+const AGENT_TIMEOUT_MS = 30_000; // 30 s per agent call
+const MAX_RETRIES = 2;
+
+// Sleep helper for retry backoff
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+/**
+ * Call an Agno agent and return its raw output string.
+ * Retries up to MAX_RETRIES times with exponential backoff on 5xx / network errors.
+ * Each attempt is subject to a AGENT_TIMEOUT_MS AbortController timeout.
+ */
 export async function generateAgentOutput(agentId: string, message: string): Promise<string> {
-    let agnoRes = await fetch(`${AGNO_BASE_URL}/agents/${agentId}/runs`, {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
-        body: new URLSearchParams({ message }).toString(),
-    });
+    let lastError: Error | null = null;
 
-    if (agnoRes.status === 422) {
-        agnoRes = await fetch(`${AGNO_BASE_URL}/agents/${agentId}/runs`, {
-            method: "POST",
-            headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
-            body: new URLSearchParams({ message }).toString(),
-        });
+    for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), AGENT_TIMEOUT_MS);
+
+        try {
+            const res = await fetch(`${AGNO_BASE_URL}/agents/${agentId}/runs`, {
+                method: "POST",
+                headers: { "Content-Type": "application/x-www-form-urlencoded", "Accept": "application/json" },
+                body: new URLSearchParams({ message }).toString(),
+                signal: controller.signal,
+            });
+
+            clearTimeout(timer);
+
+            if (!res.ok) {
+                const detail = await res.text().catch(() => "");
+                throw new Error(`Agno Agent ${agentId} failed (${res.status}): ${detail}`);
+            }
+
+            const data = await res.json();
+            return data?.content || "{}";
+        } catch (err: any) {
+            clearTimeout(timer);
+            lastError = err;
+
+            // Don't retry on 4xx (bad request) or last attempt
+            if (attempt === MAX_RETRIES) break;
+            if (err.message?.includes("(4")) break; // 4xx — not retriable
+
+            const backoff = 500 * Math.pow(2, attempt); // 500ms, 1000ms
+            await sleep(backoff);
+        }
     }
 
-    if (!agnoRes.ok) {
-        const detail = await agnoRes.text().catch(() => "");
-        throw new Error(`Agno Agent ${agentId} failed (${agnoRes.status}): ${detail}`);
-    }
-
-    const data = await agnoRes.json();
-    return data?.content || "{}";
+    throw lastError ?? new Error(`Agno Agent ${agentId}: unknown error`);
 }
 
 export async function processForgeWorkflow(
