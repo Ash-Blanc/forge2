@@ -12,6 +12,11 @@ const eslintConfig = defineConfig([
     "out/**",
     "build/**",
     "next-env.d.ts",
+    // Test files use vitest globals not in eslint scope
+    "__tests__/**",
+    "vitest.config.ts",
+    // Python agents directory
+    "agents/**",
   ]),
   {
     rules: {
