@@ -257,12 +257,12 @@ export default function DashboardPage() {
 
         const lines = [
             `✦ Forge Blueprint: ${currentSession.title} ✦\n`,
-            analysis.opportunity ? `🎯 CORE OPPORTUNITY:\n${analysis.opportunity}\n` : '',
-            analysis.coreInnovation ? `💡 TECHNICAL BREAKTHROUGH:\n${analysis.coreInnovation}\n` : '',
-            analysis.targetCustomer ? `👥 IDEAL CUSTOMER:\n${analysis.targetCustomer}\n` : '',
-            analysis.marketSize ? `📈 MARKET SIZE:\n${analysis.marketSize}\n` : '',
-            analysis.moatAnalysis ? `🛡️ DEFENSIBILITY:\n${analysis.moatAnalysis}\n` : '',
-            (analysis.buildComplexity || analysis.mvpDays) ? `⚙️ EXECUTION:\nComplexity: ${analysis.buildComplexity} | MVP Time: ~${analysis.mvpDays} days\n` : '',
+            analysis.opportunity ? ` CORE OPPORTUNITY:\n${analysis.opportunity}\n` : '',
+            analysis.coreInnovation ? ` TECHNICAL BREAKTHROUGH:\n${analysis.coreInnovation}\n` : '',
+            analysis.targetCustomer ? ` IDEAL CUSTOMER:\n${analysis.targetCustomer}\n` : '',
+            analysis.marketSize ? ` MARKET SIZE:\n${analysis.marketSize}\n` : '',
+            analysis.moatAnalysis ? ` DEFENSIBILITY:\n${analysis.moatAnalysis}\n` : '',
+            (analysis.buildComplexity || analysis.mvpDays) ? ` EXECUTION:\nComplexity: ${analysis.buildComplexity} | MVP Time: ~${analysis.mvpDays} days\n` : '',
             `\nShared from FORGE AI`
         ];
 
@@ -273,6 +273,64 @@ export default function DashboardPage() {
         } catch (err) {
             console.error("Failed to copy", err);
         }
+    };
+
+    const handleExport = (format: "json" | "md") => {
+        if (!currentSession) return;
+        const { id, title, timestamp, mode, arxivId, data, error } = currentSession;
+        
+        const safeTitle = title.replace(/[^a-z0-9]/gi, '_').toLowerCase();
+        const date = new Date(timestamp).toISOString().split('T')[0];
+        const filename = `forge_${mode}_${safeTitle}_${date}.${format}`;
+        
+        let content = "";
+        
+        if (format === "json") {
+            const payload = {
+                id, title, timestamp, mode, arxivId, 
+                data: data?.output || null, 
+                error: error || null 
+            };
+            content = JSON.stringify(payload, null, 2);
+        } else {
+            content = `# Forge Session: ${title}\n\n`;
+            content += `- **Date:** ${new Date(timestamp).toLocaleString()}\n`;
+            content += `- **Mode:** ${mode}\n`;
+            if (arxivId) content += `- **arXiv ID:** ${arxivId}\n`;
+            content += `\n---\n\n`;
+            
+            if (error) {
+                content += `## Error\n\n${error}\n\n`;
+            } else if (data?.output) {
+                const outputData = data.output as any;
+                // Special case for our standardized format
+                if (mode === "paper" && outputData.opportunity) {
+                    content += `## Core Opportunity\n${outputData.opportunity}\n\n`;
+                    content += `## Technical Breakthrough\n${outputData.coreInnovation}\n\n`;
+                    content += `## Target Customer\n${outputData.targetCustomer}\n\n`;
+                    content += `## Market Size\n${outputData.marketSize}\n\n`;
+                    content += `## Defensibility\n${outputData.moatAnalysis}\n\n`;
+                    content += `## Narrative\n${outputData.narrativeAnalysis}\n\n`;
+                } else {
+                    const sections = getReadableSections(data.output);
+                    sections.forEach(sec => {
+                        content += `## ${sec.title}\n\n${sec.body}\n\n`;
+                    });
+                }
+            } else {
+                content += `*No data available.*\n`;
+            }
+        }
+        
+        const blob = new Blob([content], { type: format === 'json' ? 'application/json' : 'text/markdown' });
+        const url = URL.createObjectURL(blob);
+        const a = document.createElement('a');
+        a.href = url;
+        a.download = filename;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        URL.revokeObjectURL(url);
     };
 
     const scrollRef = useRef<HTMLDivElement>(null);
@@ -1037,15 +1095,33 @@ export default function DashboardPage() {
                             <span className="hidden sm:inline">Canvas</span>
                         </Link>
                         {currentSession ? (
-                            <button
-                                onClick={handleShare}
-                                className="lp-btn-secondary h-8 px-2 lg:px-3 text-[0.6rem] lg:text-[0.65rem] whitespace-nowrap transition-all"
-                            >
-                                <span className="hidden sm:inline">
-                                    {copied ? "Copied!" : "Share Blueprint"}
-                                </span>
-                                <span className="sm:hidden">{copied ? "Copied" : "Share"}</span>
-                            </button>
+                            <>
+                                <button
+                                    onClick={() => handleExport("md")}
+                                    className="lp-btn-secondary h-8 px-2 lg:px-3 text-[0.6rem] lg:text-[0.65rem] whitespace-nowrap"
+                                    title="Export as Markdown"
+                                >
+                                    <span className="hidden sm:inline">Export MD</span>
+                                    <span className="sm:hidden">MD</span>
+                                </button>
+                                <button
+                                    onClick={() => handleExport("json")}
+                                    className="lp-btn-secondary h-8 px-2 lg:px-3 text-[0.6rem] lg:text-[0.65rem] whitespace-nowrap"
+                                    title="Export as JSON"
+                                >
+                                    <span className="hidden sm:inline">Export JSON</span>
+                                    <span className="sm:hidden">JSON</span>
+                                </button>
+                                <button
+                                    onClick={handleShare}
+                                    className="lp-btn-secondary h-8 px-2 lg:px-3 text-[0.6rem] lg:text-[0.65rem] whitespace-nowrap transition-all"
+                                >
+                                    <span className="hidden sm:inline">
+                                        {copied ? "Copied!" : "Share Blueprint"}
+                                    </span>
+                                    <span className="sm:hidden">{copied ? "Copied" : "Share"}</span>
+                                </button>
+                            </>
                         ) : (
                             <button
                                 className="lp-btn-secondary h-8 px-2 lg:px-3 text-[0.6rem] lg:text-[0.65rem] whitespace-nowrap"
