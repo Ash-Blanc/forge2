@@ -8,9 +8,10 @@ interface AnalysisReportProps {
     data: Partial<ForgeAnalysis>;
     isStreaming?: boolean;
     onReRunCustomer?: (prompt: string) => void;
+    onAddComment?: (sectionId: string) => void;
 }
 
-export function AnalysisReport({ data: initialData, isStreaming = false, onReRunCustomer }: AnalysisReportProps) {
+export function AnalysisReport({ data: initialData, isStreaming = false, onReRunCustomer, onAddComment }: AnalysisReportProps) {
     if (!initialData || typeof initialData !== "object") return null;
 
     // Handle case where Agno returns { analysis: { opportunity: ... } } depending on the parsing logic
@@ -23,9 +24,18 @@ export function AnalysisReport({ data: initialData, isStreaming = false, onReRun
                 <div className="space-y-4">
                     {data.opportunity && (
                         <div className="rounded-xl border border-[#eadfc9] bg-gradient-to-br from-[#fffdfa] to-[#fff8eb] p-5 shadow-sm">
-                            <h3 className="text-xs font-mono uppercase tracking-widest text-[#b2541f] mb-2 font-bold flex items-center gap-2">
-                                <span className="w-1.5 h-1.5 rounded-full bg-[#e86f2d] inline-block" />
-                                Core Opportunity
+                            <h3 className="text-xs font-mono uppercase tracking-widest text-[#b2541f] mb-2 font-bold flex items-center justify-between">
+                                <span className="flex items-center gap-2">
+                                    <span className="w-1.5 h-1.5 rounded-full bg-[#e86f2d] inline-block" />
+                                    Core Opportunity
+                                </span>
+                                {onAddComment && !isStreaming && (
+                                    <button onClick={() => onAddComment("coreOpportunity")} className="opacity-50 hover:opacity-100 transition-opacity">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                        </svg>
+                                    </button>
+                                )}
                             </h3>
                             <p className="text-[#3f3525] text-lg font-medium leading-snug">
                                 {data.opportunity}
@@ -36,7 +46,16 @@ export function AnalysisReport({ data: initialData, isStreaming = false, onReRun
 
                     {data.narrativeAnalysis && (
                         <div className="rounded-xl border border-[#eadfc9] bg-[#fffcf5] p-5 shadow-[inset_0_2px_4px_rgba(0,0,0,0.02)]">
-                            <h3 className="text-[0.65rem] font-mono uppercase tracking-widest text-[#8a7a5d] mb-2 font-bold">The Narrative</h3>
+                            <h3 className="text-[0.65rem] font-mono uppercase tracking-widest text-[#8a7a5d] mb-2 font-bold flex items-center justify-between">
+                                The Narrative
+                                {onAddComment && !isStreaming && (
+                                    <button onClick={() => onAddComment("narrative")} className="opacity-50 hover:opacity-100 transition-opacity">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                            <path strokeLinecap="round" strokeLinejoin="round" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                                        </svg>
+                                    </button>
+                                )}
+                            </h3>
                             <p className="text-[#5b4e37] text-sm leading-relaxed whitespace-pre-wrap">
                                 {data.narrativeAnalysis}
                                 {isStreaming && data.narrativeAnalysis && !data.tags && <span className="animate-blink text-[#e86f2d]">▌</span>}
