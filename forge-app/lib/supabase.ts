@@ -38,3 +38,37 @@ export type DBAnalysisSession = {
     created_at: string;
     updated_at: string;
 };
+
+/**
+ * Creates a Supabase client that can be used with a user's JWT.
+ * This is essential for Row Level Security (RLS) to work correctly.
+ */
+export function createSupabaseForUser(token: string | null) {
+    if (!url) {
+        throw new Error("NEXT_PUBLIC_SUPABASE_URL is not defined");
+    }
+    // Always use the publishable/anon key for RLS-scoped clients
+    const supabaseKey =
+        process.env.NEXT_PUBLIC_SUPABASE_PUBLISHABLE_DEFAULT_KEY ||
+        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+
+    if (!supabaseKey) {
+        throw new Error("Supabase publishable key is not defined");
+    }
+
+    const options: any = {
+        global: {
+            headers: {},
+        },
+        auth: {
+            persistSession: false,
+            autoRefreshToken: false,
+        },
+    };
+
+    if (token) {
+        options.global.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return createClient(url, supabaseKey, options);
+}
